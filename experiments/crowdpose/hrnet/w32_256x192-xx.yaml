@@ -1,7 +1,6 @@
 AUTO_RESUME: true
 ENV: 0
 GPUS: (1,)
-OUTPUT_DIR: 'output'
 WORKERS: 6
 PRINT_FREQ: 50
 EPOCH_EVAL_FREQ: 30
@@ -41,7 +40,7 @@ DEBUG:
   SAVE_BATCH_IMAGES_PRED: true
   SAVE_HEATMAPS_GT: true
   SAVE_HEATMAPS_PRED: true
-
+DESCRIPTION: lambda1_0.5
 MODEL:
   INIT_WEIGHTS: true
   NAME: pose_hrnet_IgnSE12_lambda

@@ -16,9 +16,10 @@ from yacs.config import CfgNode as CN
 
 _C = CN()
 
-_C.OUTPUT_DIR = ''
-_C.LOG_DIR = ''
-_C.DATA_DIR = ''
+_C.OUTPUT_DIR = ['output', 'output', '../model']
+_C.LOG_DIR = ['', '', '../log']
+_C.DATA_DIR = ['', '', '../data']
+_C.DESCRIPTION = ''
 _C.ENV = 0
 _C.EXP_ID = ''
 _C.GPUS = (0,)
@@ -58,7 +59,7 @@ _C.LOSS.USE_DIFFERENT_JOINTS_WEIGHT = False
 # DATASET related params
 _C.DATASET = CN()
 _C.DATASET.DATASET = 'mpii'
-_C.DATASET.ROOT = ['/home/disk/weixing/datasets' ,'/home/bxx-wx/dataset']
+_C.DATASET.ROOT = ['/home/disk/weixing/datasets' ,'/home/bxx-wx/dataset', ""]
 
 _C.DATASET.TRAIN_DATASET = 'mpii'
 _C.DATASET.TRAIN_SET = 'train'
@@ -173,7 +174,11 @@ def update_config(cfg, args):
     if args.dataDir:
         cfg.DATA_DIR = args.dataDir
 
-    cfg.DATASET.ROOT = cfg.DATASET.ROOT[cfg.ENV]
+    env = cfg.ENV
+    cfg.OUTPUT_DIR = cfg.OUTPUT_DIR[env]
+    cfg.DATASET.ROOT = cfg.DATASET.ROOT[env]
+    cfg.DATA_DIR = cfg.DATA_DIR[env]
+    cfg.LOG_DIR = cfg.LOG_DIR[env]
     cfg.DATASET.ROOT = os.path.join(
         cfg.DATA_DIR, cfg.DATASET.ROOT
     )
