@@ -98,8 +98,9 @@ def main():
         (1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0])
     )
 
-    output = model(dump_input)
-    print(output.shape)
+    occ, occee = model(dump_input)
+    print(occ.shape)
+    print(occee.shape)
     print('over')
 
 

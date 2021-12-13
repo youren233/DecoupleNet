@@ -283,7 +283,7 @@ def main():
 
         lr_scheduler.step()
 
-        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > 205:
+        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > 65:
             perf_indicator = validate_lambda_quantitative(cfg, valid_loader, valid_dataset, model, criterion,
                      final_output_dir, tb_log_dir, writer_dict, epoch=epoch, print_prefix='lambda', lambda_vals=[0, 1], log=logger)
 

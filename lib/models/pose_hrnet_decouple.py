@@ -13,7 +13,6 @@ import logging
 
 import torch
 import torch.nn as nn
-from lib.amzmodel.attention.SEAttention import SEAttention
 
 
 BN_MOMENTUM = 0.1
@@ -321,7 +320,7 @@ class PoseHighResolutionNet(nn.Module):
         self.stage4, pre_stage_channels = self._make_stage(
             self.stage4_cfg, num_channels, multi_scale_output=False)
 
-        self.decouple = DecoupleModule()
+        self.decouple_head = MaskRCNNConvUpsampleHead(cfg, in_channels=pre_stage_channels[0])
 
         self.pretrained_layers = extra['PRETRAINED_LAYERS']
 
@@ -449,12 +448,10 @@ class PoseHighResolutionNet(nn.Module):
             else:
                 x_list.append(y_list[i])
         y_list = self.stage4(x_list)
-        residual = y_list[0].copy()
 
-        x = self.final_layer1(y_list[0])
-        y = self.final_layer2(y_list[0])
+        occ_pose, occee_pose = self.decouple_head(y_list[0])
 
-        return self.decouple(y_list[0])
+        return occ_pose, occee_pose
 
     def init_weights(self, pretrained=''):
         logger.info('=> init weights from normal distribution')
@@ -488,70 +485,181 @@ class PoseHighResolutionNet(nn.Module):
             logger.error('=> please download pre-trained models first!')
             raise ValueError('{} is not exist!'.format(pretrained))
 
-class DecoupleModule(nn.Module):
-    def __init__(self, in_channel, kpt_num, out_conv_kernel):
-        super(DecoupleModule, self).__init__()
+import fvcore.nn.weight_init as weight_init
+import torch
+from torch import nn
+from torch.nn import functional as F
+from lib.utils import comm
+from lib.layers.wrappers import Conv2d, ConvTranspose2d, cat
+from lib.layers.batch_norm import get_norm
 
-        self.out_layer1 = nn.Conv2d(
-            in_channels=in_channel,
-            out_channels=kpt_num,
-            kernel_size=out_conv_kernel,
-            stride=1,
-            padding=1 if out_conv_kernel == 3 else 0
-        )
 
-        self.out_layer2 = nn.Conv2d(
-            in_channels=in_channel,
-            out_channels=kpt_num,
-            kernel_size=out_conv_kernel,
-            stride=1,
-            padding=1 if out_conv_kernel == 3 else 0
-        )
+class MaskRCNNConvUpsampleHead(nn.Module):
+    """
+    A mask head with several conv layers, plus an upsample layer (with `ConvTranspose2d`).
+    """
 
-        self.final_layer1 = UnocclusionLayer(in_channel + kpt_num * 2, kpt_num)
-        self.final_layer2 = UnocclusionLayer(in_channel + kpt_num * 2, kpt_num)
-        return
+    def __init__(self, cfg, in_channels):
+        """
+        The following attributes are parsed from config:
+            num_conv: the number of conv layers
+            conv_dim: the dimension of the conv layers
+            norm: normalization for the conv layers
+        """
+        super(MaskRCNNConvUpsampleHead, self).__init__()
 
-    def forward(self, x):
-        residual = x
+        # fmt: off
+        conv_dims         = cfg.MODEL.DECOUPLE.CONV_DIM
+        self.norm         = cfg.MODEL.DECOUPLE.NORM
+        num_conv          = cfg.MODEL.DECOUPLE.NUM_CONV
+        input_channels    = cfg.MODEL.DECOUPLE.IN_CHANNELS
+        # fmt: on
 
-        pose1 = self.out_layer1(x)
-        pose2 = self.out_layer2(x)
+        self.conv_norm_relus = []
 
-        out = torch.cat([pose1, pose2, residual], 1)
-        refine_pose1 = self.final_layer1(out)
-        refine_pose2 = self.final_layer2(out)
-        return pose1, pose2, refine_pose1, refine_pose2
-
-class UnocclusionLayer(nn.Module):
-    def __init__(self, in_channel, out_channel):
-        super(UnocclusionLayer, self).__init__()
-
-        self.conv = nn.Sequential(
-                nn.Conv2d(
-                    num_inchannels[j],
-                    num_outchannels_conv3x3,
-                    3, 2, 1, bias=False
-                ),
-                nn.BatchNorm2d(num_outchannels_conv3x3)
+        for k in range(num_conv):
+            conv = Conv2d(
+                input_channels if k == 0 else conv_dims,
+                conv_dims,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=not self.norm,
+                norm=get_norm(self.norm, conv_dims),
+                activation=F.relu,
             )
-        self.channel_attention = SEAttention(in_channel)
+            self.add_module("mask_fcn{}".format(k + 1), conv)
+            self.conv_norm_relus.append(conv)
 
-        # ASPP
-        self.d2conv = nn.Conv2d(512, 128, 3, 1, padding=2, dilation=2)
-        self.d4conv = nn.Conv2d(512, 128, 3, 1, padding=5, dilation=5)
-        self.d8conv = nn.Conv2d(512, 128, 3, 1, padding=9, dilation=9)
-        self.d16conv = nn.Conv2d(512, 128, 3, 1, padding=16, dilation=16)
-        return
+        self.boundary_conv_norm_relus = []
+        for k in range(num_conv):
+            conv = Conv2d(
+                input_channels if k == 0 else conv_dims,
+                conv_dims,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=not self.norm,
+                norm=get_norm(self.norm, conv_dims),
+                activation=F.relu,
+            )
+            self.add_module("boundary_fcn{}".format(k + 1), conv)
+            self.boundary_conv_norm_relus.append(conv)
+
+        self.query_transform_bound_bo = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.key_transform_bound_bo = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.value_transform_bound_bo = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.output_transform_bound_bo = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
+
+        self.query_transform_bound = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.key_transform_bound = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.value_transform_bound = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.output_transform_bound = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
+
+
+        self.scale = 1.0 / (input_channels ** 0.5)
+        self.blocker_bound_bo = nn.BatchNorm2d(input_channels, eps=1e-04) # should be zero initialized
+        self.blocker_bound = nn.BatchNorm2d(input_channels, eps=1e-04) # should be zero initialized
+
+        for layer in self.conv_norm_relus + self.boundary_conv_norm_relus + [self.query_transform_bound_bo, self.key_transform_bound_bo, self.value_transform_bound_bo, self.output_transform_bound_bo, self.query_transform_bound, self.key_transform_bound, self.value_transform_bound, self.output_transform_bound]:
+            weight_init.c2_msra_fill(layer)
+
+        # 初始化？
+        self.adaptor = nn.Conv2d(in_channels=in_channels, out_channels=256, kernel_size=1, stride=1, padding=0)
+
+        self.pose_occluder = nn.Conv2d(
+            in_channels=conv_dims,
+            out_channels=cfg['MODEL']['NUM_JOINTS'],
+            kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
+            stride=1,
+            padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
+        )
+        nn.init.constant_(self.pose_occluder.bias, 0)
+
+        self.pose_occludee = nn.Conv2d(
+            in_channels=conv_dims,
+            out_channels=cfg['MODEL']['NUM_JOINTS'],
+            kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
+            stride=1,
+            padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
+        )
+        nn.init.constant_(self.pose_occludee.bias, 0)
 
     def forward(self, x):
-        x = self.channel_attention(x)
+        x = self.adaptor(x)
+        B, C, H, W = x.size() # B, 256, 64, 48
+        x_ori = x.clone()
 
-        return
+        for cnt, layer in enumerate(self.boundary_conv_norm_relus):
+            x = layer(x) # [16, 256, 64, 48]s
+
+            if cnt == 1 and len(x) != 0:
+                # GCN!
+
+                # x_input = AddCoords()(x)
+                # x_query | query_transform_bound_bo: Conv2d(256, 256, kernel_size=(1, 1), stride=(1, 1))
+                x_query_bound_bo = self.query_transform_bound_bo(x).view(B, C, -1) # B, 256, 3072
+                x_query_bound_bo = torch.transpose(x_query_bound_bo, 1, 2) # B, 3072, 256 (B,HW,C)
+                # x_key: B,C,HW | key_transform_bound_bo: Conv2d(256, 256, kernel_size=(1, 1), stride=(1, 1), bias=False)
+                x_key_bound_bo = self.key_transform_bound_bo(x).view(B, C, -1) # B, 256, 3072
+                # x_value: B,HW,C
+                x_value_bound_bo = self.value_transform_bound_bo(x).view(B, C, -1)  # B, 256, 3072 (B,C,HW)
+                x_value_bound_bo = torch.transpose(x_value_bound_bo, 1, 2)# B, 3072, 256
+                # W = Q^T K: B,HW,HW(可学习的参数?)
+                x_w_bound_bo = torch.matmul(x_query_bound_bo, x_key_bound_bo) * self.scale  # B, 3072, 3072
+                x_w_bound_bo = F.softmax(x_w_bound_bo, dim=-1)
+                # x_relation = WV: B,HW,C
+                x_relation_bound_bo = torch.matmul(x_w_bound_bo, x_value_bound_bo)  # B, 3072, 256
+                x_relation_bound_bo = torch.transpose(x_relation_bound_bo, 1, 2)    # B, 256, 3072 (B,C,HW)
+                x_relation_bound_bo = x_relation_bound_bo.view(B,C,H,W) # 16, 256, 64, 48 (B,C,H,W)
+
+                x_relation_bound_bo = self.output_transform_bound_bo(x_relation_bound_bo)   # 16, 256, 64, 48
+                x_relation_bound_bo = self.blocker_bound_bo(x_relation_bound_bo)    # 16, 256, 64, 48
+
+                x = x + x_relation_bound_bo
+
+        occ_feat = x.clone()  # [B, 256, 64, 48]
+        # occ pose head
+        pose_occ = self.pose_occluder(occ_feat)
+
+        # 下路分支
+        x = x_ori + x
+        for cnt, layer in enumerate(self.conv_norm_relus):
+            x = layer(x)
+            if cnt == 1 and len(x) != 0:
+                # x: B,C,H,W
+                #x_input = AddCoords()(x)
+                # x_query: B,C,HW
+                x_query_bound = self.query_transform_bound(x).view(B, C, -1)
+                x_query_bound = torch.transpose(x_query_bound, 1, 2) # B,HW,C
+                # x_key: B,C,HW
+                x_key_bound = self.key_transform_bound(x).view(B, C, -1)
+                # x_value: B,C,HW
+                x_value_bound = self.value_transform_bound(x).view(B, C, -1)
+                x_value_bound = torch.transpose(x_value_bound, 1, 2) # B,HW,C
+                # W = Q^T K: B,HW,HW
+                x_w_bound = torch.matmul(x_query_bound, x_key_bound) * self.scale
+                x_w_bound = F.softmax(x_w_bound, dim=-1)
+                # x_relation = WV: B,HW,C
+                x_relation_bound = torch.matmul(x_w_bound, x_value_bound)
+                x_relation_bound = torch.transpose(x_relation_bound, 1, 2) # B,C,HW
+                x_relation_bound = x_relation_bound.view(B,C,H,W) # B,C,H,W
+
+                x_relation_bound = self.output_transform_bound(x_relation_bound)
+                x_relation_bound = self.blocker_bound(x_relation_bound)
+
+                x = x + x_relation_bound
+
+        occee_feat = x.clone()
+        # occee pose head
+        pose_occee = self.pose_occludee(occee_feat)
+
+        return pose_occ, pose_occee
 
 def get_pose_net(cfg, is_train, **kwargs):
     model = PoseHighResolutionNet(cfg, **kwargs)
 
+    print('==============> Got pose_hrnet_decouple')
     if is_train and cfg['MODEL']['INIT_WEIGHTS']:
         model.init_weights(cfg['MODEL']['PRETRAINED'])
 

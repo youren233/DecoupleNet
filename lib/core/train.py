@@ -490,6 +490,89 @@ def train_lambda(config, train_loader, model, criterion_lambda, criterion, optim
     train_loader.close()
     return
 
+# dcp-------
+def train_dcp(config, train_loader, model, criterion, optimizer, epoch,
+                 output_dir, tb_log_dir, writer_dict, print_prefix=''):
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    losses = AverageMeter()
+    acc = AverageMeter()
+    model_grads = AverageMeter()
+    diversity_losses = AverageMeter()
+    pose_losses = AverageMeter()
+    OCC_WEIGHT: 1
+    OCCEE_WEIGHT: 1
+    occ_weight = config['MODEL']['DECOUPLE']['OCC_WEIGHT']
+    occee_weight = config['MODEL']['DECOUPLE']['OCCEE_WEIGHT']
+
+    # switch to train mode
+    model.train()
+
+    train_loader = tqdm(train_loader)
+
+    # end = time.time()
+    for i, (input, target_a, target_weight_a, meta_a, target_b, target_weight_b, meta_b) in enumerate(train_loader):
+        # measure data loading time
+        # data_time.update(time.time() - end)
+
+        input = input.cuda()
+        outputs = model(input)
+        occ_pose, occee_pose = outputs
+
+        target_a = target_a.cuda(non_blocking=True)
+        target_weight_a = target_weight_a.cuda(non_blocking=True)
+        target_b = target_b.cuda(non_blocking=True)
+        target_weight_b = target_weight_b.cuda(non_blocking=True)
+
+        loss_occ = criterion(occ_pose, target_a, target_weight_a)
+        loss_occee = criterion(occee_pose, target_b, target_weight_b)
+
+        pose_loss = occ_weight * loss_occ + occee_weight * loss_occee
+        # loss = pose_loss + 0.1*diversity_loss
+        loss = pose_loss
+
+        # compute gradient and do update step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # model_grad = get_network_grad_flow(model)
+        # model_grads.update(model_grad)
+
+        # measure accuracy and record loss
+        losses.update(loss.item(), input.size(0))
+        pose_losses.update(pose_loss.item(), input.size(0))
+
+        _, avg_acc, cnt, pred_a = accuracy(occ_pose.detach().cpu().numpy(),
+                                           target_a.detach().cpu().numpy())
+        _, avg_acc, cnt, pred_b = accuracy(occee_pose.detach().cpu().numpy(),
+                                           target_b.detach().cpu().numpy())
+        acc.update(avg_acc, cnt)
+        # measure elapsed time
+        # batch_time.update(time.time() - end)
+        # end = time.time()
+
+        if config.LOG:
+            msg = 'Loss {loss.val:.5f} ' \
+                  'Acc {acc.val:.3f} ' \
+                  'PoseLs {pose_loss.val:.5f}'.format(
+                i, len(train_loader),
+                loss=losses, acc=acc,
+                # model_grad=model_grads,
+                # diversity_loss=diversity_losses,
+                pose_loss=pose_losses)
+            train_loader.set_description(msg)
+
+        if i % config.PRINT_FREQ == 0 and config.LOG:
+            writer = writer_dict['writer']
+            global_steps = writer_dict['train_global_steps']
+            writer.add_scalar('train_loss', losses.val, global_steps)
+            writer.add_scalar('train_acc', acc.val, global_steps)
+            writer_dict['train_global_steps'] = global_steps + 1
+
+    train_loader.close()
+    return
+# dcp-------
 # --------------------------------------------------------------------------------
 def train_cutout(config, train_loader, model, criterion, optimizer, epoch,
                  output_dir, tb_log_dir, writer_dict, print_prefix=''):

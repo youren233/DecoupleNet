@@ -39,6 +39,16 @@ _C.CUDNN.ENABLED = True
 # common params for NETWORK
 _C.MODEL = CN()
 _C.MODEL.NAME = 'pose_hrnet'
+
+_C.MODEL.DECOUPLE = CN(new_allowed=True)
+# Options: "" (no norm), "GN", "SyncBN".
+_C.MODEL.DECOUPLE.NORM = ""
+_C.MODEL.DECOUPLE.NUM_CONV = 0  # The number of convs in the mask head
+_C.MODEL.DECOUPLE.CONV_DIM = 256
+_C.MODEL.DECOUPLE.IN_CHANNELS = 256
+_C.MODEL.DECOUPLE.OCC_WEIGHT = 1
+_C.MODEL.DECOUPLE.OCCEE_WEIGHT = 1
+
 _C.MODEL.INIT_WEIGHTS = True
 _C.MODEL.PRETRAINED = ''
 _C.MODEL.NUM_JOINTS = 17

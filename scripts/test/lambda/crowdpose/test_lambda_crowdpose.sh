@@ -3,7 +3,7 @@ cd ../../../..
 # # # # -----------------------------------------------------------
 # # # -----------------------------------------------------------
 # # # # # # # # # # # -----------------------------------------------------------
-#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/lambda/test_lambda.py \
+#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/lambda/test_decouple.py \
 #      --cfg experiments/crowdpose/hrnet/w32_256x192-pub.yaml \
 #      GPUS '(0,1,2,)' \
 #      TEST.MODEL_FILE 'models/lambda/crowdpose/Logs/w32/256/checkpoint_102.pth' \
@@ -24,7 +24,7 @@ cd ../../../..
 #      MODEL.SE_MODULES '[False, False, True, True]'
 
 # # # # # # # # # # # -----------------------------------------------------------
-#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/lambda/test_lambda.py \
+#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/lambda/test_decouple.py \
 #      --cfg experiments/crowdpose/hrnet/w48_256x192_adam_lr1e-3.yaml \
 #      GPUS '(0,1,2,)' \
 #      TEST.MODEL_FILE 'models/lambda/crowdpose/Logs/w48/256/checkpoint_103.pth' \
@@ -45,7 +45,7 @@ cd ../../../..
 #      MODEL.SE_MODULES '[False, False, True, True]'
 
 # # # # # # # # # # # -----------------------------------------------------------
-#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/lambda/test_lambda.py \
+#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/lambda/test_decouple.py \
 #      --cfg experiments/crowdpose/hrnet/w32_384x288_adam_lr1e-3.yaml \
 #      GPUS '(0,1,2,)' \
 #      TEST.MODEL_FILE 'models/lambda/crowdpose/Logs/w32/384/checkpoint_102.pth' \

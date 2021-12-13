@@ -595,7 +595,7 @@ class SEIgnLambdaLayer(nn.Module):
         y = self.avg_pool(x).view(b, c)
         y = self.fc(y)
 
-        y = self.ignore1(y).view(b, c, 1, 1)
+        y = self.ignore2(y).view(b, c, 1, 1)
 
         z = self.fc_lambda(lambda_vec).view(b, c, 1, 1)
 
