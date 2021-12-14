@@ -586,7 +586,6 @@ class MaskRCNNConvUpsampleHead(nn.Module):
         nn.init.constant_(self.pose_occludee.bias, 0)
 
     def forward(self, x):
-        # x = self.adaptor(x)
         B, C, H, W = x.size() # B, C, 64, 48
         x_ori = x.clone()
 
