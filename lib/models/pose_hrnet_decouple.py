@@ -565,7 +565,7 @@ class MaskRCNNConvUpsampleHead(nn.Module):
             weight_init.c2_msra_fill(layer)
 
         # 初始化？
-        self.adaptor = nn.Conv2d(in_channels=in_channels, out_channels=head_channels, kernel_size=1, stride=1, padding=0)
+        # self.adaptor = nn.Conv2d(in_channels=in_channels, out_channels=head_channels, kernel_size=1, stride=1, padding=0)
 
         self.pose_occluder = nn.Conv2d(
             in_channels=conv_dims,
@@ -586,7 +586,7 @@ class MaskRCNNConvUpsampleHead(nn.Module):
         nn.init.constant_(self.pose_occludee.bias, 0)
 
     def forward(self, x):
-        x = self.adaptor(x)
+        # x = self.adaptor(x)
         B, C, H, W = x.size() # B, C, 64, 48
         x_ori = x.clone()
 
