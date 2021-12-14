@@ -10,7 +10,7 @@ from __future__ import print_function
 
 import numpy as np
 
-from lib.nms.cpu_nms import cpu_nms
+# from lib.nms.cpu_nms import cpu_nms
 # from lib.nms.gpu_nms import gpu_nms
 
 

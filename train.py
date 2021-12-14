@@ -241,7 +241,7 @@ def main():
 
         lr_scheduler.step()
 
-        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > 65:
+        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > 205:
             perf_indicator = validate_dcp(cfg, valid_loader, valid_dataset, model, criterion,
                      final_output_dir, tb_log_dir, writer_dict, epoch=epoch, print_prefix='lambda', lambda_vals=[0, 1], log=logger)
 
@@ -251,17 +251,17 @@ def main():
             else:
                 best_model = False
 
-        if cfg.LOG:
-            logger.info('=> model AP: {} | saving checkpoint to {}'.format(perf_indicator, final_output_dir))
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'model': cfg.MODEL.NAME,
-                'state_dict': model.state_dict(),
-                'latest_state_dict': model.module.state_dict(),
-                'best_state_dict': model.module.state_dict(),
-                'perf': perf_indicator,
-                'optimizer': optimizer.state_dict(),
-                }, best_model, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))
+            if cfg.LOG:
+                logger.info('=> model AP: {} | saving checkpoint to {}'.format(perf_indicator, final_output_dir))
+                save_checkpoint({
+                    'epoch': epoch + 1,
+                    'model': cfg.MODEL.NAME,
+                    'state_dict': model.state_dict(),
+                    'latest_state_dict': model.module.state_dict(),
+                    'best_state_dict': model.module.state_dict(),
+                    'perf': perf_indicator,
+                    'optimizer': optimizer.state_dict(),
+                    }, best_model, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))
 
     # # ----------------------------------------------
     if cfg.LOG:
