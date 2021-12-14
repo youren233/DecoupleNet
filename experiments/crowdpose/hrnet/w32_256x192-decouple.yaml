@@ -46,8 +46,8 @@ MODEL:
   INIT_WEIGHTS: true
   NAME: pose_hrnet_decouple
   DECOUPLE:
-    HEAD_CHANNELS: 64
-    CONV_DIM: 64
+    HEAD_CHANNELS: 32
+    CONV_DIM: 32
     NORM: ''
     NUM_CONV: 4
     OCC_WEIGHT: 1
