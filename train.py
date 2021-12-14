@@ -229,8 +229,8 @@ def main():
         if cfg.LOG:
             logger.info('====== training on lambda, lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
-        # train_dcp(cfg, train_loader, model, criterion, optimizer, epoch,
-        #   final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
+        train_dcp(cfg, train_loader, model, criterion, optimizer, epoch,
+          final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
 
         lr_scheduler.step()
 
