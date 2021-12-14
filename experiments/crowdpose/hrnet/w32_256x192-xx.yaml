@@ -22,7 +22,7 @@ TRAIN:
   MOMENTUM: 0.9
   NESTEROV: false
 TEST:
-  BATCH_SIZE_PER_GPU: 64
+  BATCH_SIZE_PER_GPU: 1
   COCO_BBOX_FILE: 'coco/person_detection_results/COCO_val2017_detections_AP_H_56_person.json'
   BBOX_THRE: 1.0
   IMAGE_THRE: 0.0
@@ -43,7 +43,7 @@ DEBUG:
 DESCRIPTION: pose_hrnet_IgnSE12_lambda.py
 MODEL:
   INIT_WEIGHTS: true
-  NAME: pose_hrnet_IgnSE12_lambda
+  NAME: pose_hrnet
   NUM_JOINTS: 14
   PRETRAINED: 'models/hrnet_w32-36af842e.pth'
   TARGET_TYPE: gaussian
