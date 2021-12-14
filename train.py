@@ -250,8 +250,8 @@ def main():
                     'epoch': epoch + 1,
                     'model': cfg.MODEL.NAME,
                     'state_dict': model.state_dict(),
-                    'latest_state_dict': model.module.state_dict(),
-                    'best_state_dict': model.module.state_dict(),
+                    'latest_state_dict': model.state_dict(),    # .module
+                    'best_state_dict': model.state_dict(),      #.module
                     'perf': perf_indicator,
                     'optimizer': optimizer.state_dict(),
                     }, best_model, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))
