@@ -336,9 +336,7 @@ def validate_lambda_quantitative(config, val_loader, val_dataset, model, criteri
 # dcp
 def validate_dcp(config, val_loader, val_dataset, model, criterion, output_dir,
                                  tb_log_dir, writer_dict=None, epoch=-1, print_prefix='', lambda_vals=[0, 1], log=logger):
-    batch_time = AverageMeter()
-    losses = AverageMeter()
-    acc = AverageMeter()
+    accAMer = AverageMeter()
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -388,7 +386,7 @@ def validate_dcp(config, val_loader, val_dataset, model, criterion, output_dir,
                 occee_pose = (occee_pose + occee_pose_flipped) * 0.5
             for idx, output in enumerate([coo_pose, occee_pose]):
                 # b x [0, 1], b x [1, 0]
-                mode = idx * torch.ones(B, 1).cuda()
+                mode = idx * torch.ones(B, 1)
 
                 target = target.cuda(non_blocking=True)
                 target_weight = target_weight.cuda(non_blocking=True)
@@ -397,7 +395,7 @@ def validate_dcp(config, val_loader, val_dataset, model, criterion, output_dir,
                 # measure accuracy and record loss
                 _, avg_acc, cnt, pred = accuracy(output.cpu().numpy(),
                                                  target.cpu().numpy())
-                acc.update(avg_acc, cnt)
+                accAMer.update(avg_acc, cnt)
 
                 # measure elapsed time
                 # batch_time.update(time.time() - end)
@@ -430,7 +428,7 @@ def validate_dcp(config, val_loader, val_dataset, model, criterion, output_dir,
                 idx += num_images
 
                 if config.LOG:
-                    msg = 'Accuracy {acc.val:.8f}'.format(acc=acc)
+                    msg = 'Accuracy {acc.val:.8f}'.format(acc=accAMer)
                     val_loader.set_description(msg)
 
                 # if ((i % config.PRINT_FREQ == 0) or (i == (len(val_loader)-1))) and config.LOG:
@@ -464,13 +462,8 @@ def validate_dcp(config, val_loader, val_dataset, model, criterion, output_dir,
             writer = writer_dict['writer']
             global_steps = writer_dict['valid_global_steps']
             writer.add_scalar(
-                'valid_loss',
-                losses.avg,
-                global_steps
-            )
-            writer.add_scalar(
                 'valid_acc',
-                acc.avg,
+                accAMer.avg,
                 global_steps
             )
             if isinstance(name_values, list):

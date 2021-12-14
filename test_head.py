@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
 
     stage_channel_factor = 2 ** 3  # res5 is 8x res2
-    out_channels = 256 # cfg.MODEL.RESNETS.RES2_OUT_CHANNELS * stage_channel_factor
+    out_channels = 64 # cfg.MODEL.RESNETS.RES2_OUT_CHANNELS * stage_channel_factor
     pooler_resolution = cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
     # shapeSpec = ShapeSpec(channels=out_channels, width=pooler_resolution, height=pooler_resolution) # [b_size, 2048, 14, 14]
 
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     # input_sp.channels = out_channels
     head = build_mask_head(cfg, out_channels)
 
-    input = torch.rand([16, 256, 64, 48])
+    input = torch.rand([16, 64, 64, 48])
     out = head(input)
 
     print('over')

@@ -49,7 +49,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-xx.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-decouple.yaml',
                         type=str)
 
     parser.add_argument('opts',

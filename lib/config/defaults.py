@@ -293,7 +293,7 @@ _C.MODEL.ROI_BOX_HEAD.NUM_FC = 0
 _C.MODEL.ROI_BOX_HEAD.FC_DIM = 1024
 _C.MODEL.ROI_BOX_HEAD.NUM_CONV = 0
 # Channel dimension for Conv layers in the RoI box head
-_C.MODEL.ROI_BOX_HEAD.CONV_DIM = 256
+_C.MODEL.ROI_BOX_HEAD.CONV_DIM = 64
 # Normalization method for the convolution layers.
 # Options: "" (no norm), "GN", "SyncBN".
 _C.MODEL.ROI_BOX_HEAD.NORM = ""
@@ -321,7 +321,7 @@ _C.MODEL.ROI_MASK_HEAD.NAME = "MaskRCNNConvUpsampleHead"
 _C.MODEL.ROI_MASK_HEAD.POOLER_RESOLUTION = 14
 _C.MODEL.ROI_MASK_HEAD.POOLER_SAMPLING_RATIO = 0
 _C.MODEL.ROI_MASK_HEAD.NUM_CONV = 0  # The number of convs in the mask head
-_C.MODEL.ROI_MASK_HEAD.CONV_DIM = 256
+_C.MODEL.ROI_MASK_HEAD.CONV_DIM = 64
 # Normalization method for the convolution layers.
 # Options: "" (no norm), "GN", "SyncBN".
 _C.MODEL.ROI_MASK_HEAD.NORM = ""

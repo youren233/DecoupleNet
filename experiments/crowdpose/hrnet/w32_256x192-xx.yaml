@@ -43,9 +43,8 @@ DEBUG:
 DESCRIPTION: pose_hrnet_IgnSE12_lambda.py
 MODEL:
   INIT_WEIGHTS: true
-  NAME: pose_hrnet
+  NAME: pose_hrnet_SEIgn_lambda
   NUM_JOINTS: 14
-  PRETRAINED: 'models/hrnet_w32-36af842e.pth'
   TARGET_TYPE: gaussian
   IMAGE_SIZE:
   - 192

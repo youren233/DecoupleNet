@@ -42,15 +42,15 @@ _C.MODEL.NAME = 'pose_hrnet'
 
 _C.MODEL.DECOUPLE = CN(new_allowed=True)
 # Options: "" (no norm), "GN", "SyncBN".
-_C.MODEL.DECOUPLE.NORM = ""
-_C.MODEL.DECOUPLE.NUM_CONV = 0  # The number of convs in the mask head
-_C.MODEL.DECOUPLE.CONV_DIM = 256
-_C.MODEL.DECOUPLE.IN_CHANNELS = 256
-_C.MODEL.DECOUPLE.OCC_WEIGHT = 1
-_C.MODEL.DECOUPLE.OCCEE_WEIGHT = 1
+# _C.MODEL.DECOUPLE.NORM = ""
+# _C.MODEL.DECOUPLE.NUM_CONV = 0  # The number of convs in the mask head
+# _C.MODEL.DECOUPLE.CONV_DIM = 256
+# _C.MODEL.DECOUPLE.HEAD_CHANNELS = 64
+# _C.MODEL.DECOUPLE.OCC_WEIGHT = 1
+# _C.MODEL.DECOUPLE.OCCEE_WEIGHT = 1
 
 _C.MODEL.INIT_WEIGHTS = True
-_C.MODEL.PRETRAINED = ''
+_C.MODEL.PRETRAINED = ['model/hrnet_w32-36af842e.pth', 'model/hrnet_w32-36af842e.pth', '../model/hrnet_w32-36af842e.pth']
 _C.MODEL.NUM_JOINTS = 17
 _C.MODEL.TAG_PER_JOINT = True
 _C.MODEL.TARGET_TYPE = 'gaussian'
@@ -199,9 +199,7 @@ def update_config(cfg, args):
     cfg.DATASET.TEST_ANNOTATION_FILE = os.path.join(cfg.DATASET.ROOT, cfg.DATASET.TEST_ANNOTATION_FILE)
     cfg.TEST.COCO_BBOX_FILE = os.path.join(cfg.DATASET.ROOT, cfg.TEST.COCO_BBOX_FILE)
 
-    cfg.MODEL.PRETRAINED = os.path.join(
-        cfg.DATA_DIR, cfg.MODEL.PRETRAINED
-    )
+    cfg.MODEL.PRETRAINED = cfg.MODEL.PRETRAINED[env]
 
     if cfg.TEST.MODEL_FILE:
         cfg.TEST.MODEL_FILE = os.path.join(

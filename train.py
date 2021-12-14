@@ -110,21 +110,12 @@ def main():
     torch.backends.cudnn.deterministic = cfg.CUDNN.DETERMINISTIC
     torch.backends.cudnn.enabled = cfg.CUDNN.ENABLED
 
-    device = cfg.GPUS[args.local_rank]
-    torch.cuda.set_device(device)
-
-    set_seed(seed_id=0)
     # 分布式训练 1）
     if dist:
         torch.distributed.init_process_group('nccl', init_method='env://')
+    set_seed(seed_id=0)
 
     model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(cfg, is_train=True)
-
-    # # copy model file
-    this_dir = os.path.dirname(__file__)
-    shutil.copy2(os.path.join(this_dir, '../../lib/models', cfg.MODEL.NAME + '.py'), final_output_dir)
-    # copy train file
-    shutil.copy2(__file__, final_output_dir)
 
     writer_dict = None
     if cfg.LOG:
@@ -141,11 +132,13 @@ def main():
 
     logger.info(get_dcp_model_summary(model, dump_input))
 
-    # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)#.cuda()
+    if cfg.ENV != 2:
+        device = cfg.GPUS[args.local_rank]
+        torch.cuda.set_device(device)
+        model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
+
     if dist:
         model = torch.nn.parallel.DistributedDataParallel(model)
-    else:
-        model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
 
      # ------------------------------------------
     # define loss function (criterion) and optimizer

@@ -121,10 +121,10 @@ def main():
     model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(cfg, is_train=True)
 
     # # copy model file
-    this_dir = os.path.dirname(__file__)
-    shutil.copy2(os.path.join(this_dir, '../../lib/models', cfg.MODEL.NAME + '.py'), final_output_dir)
-    # copy train file
-    shutil.copy2(__file__, final_output_dir)
+    # this_dir = os.path.dirname(__file__)
+    # shutil.copy2(os.path.join(this_dir, '../../lib/models', cfg.MODEL.NAME + '.py'), final_output_dir)
+    # # copy train file
+    # shutil.copy2(__file__, final_output_dir)
 
     writer_dict = None
     if cfg.LOG:

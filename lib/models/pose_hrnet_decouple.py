@@ -509,17 +509,17 @@ class MaskRCNNConvUpsampleHead(nn.Module):
         super(MaskRCNNConvUpsampleHead, self).__init__()
 
         # fmt: off
-        conv_dims         = cfg.MODEL.DECOUPLE.CONV_DIM
-        self.norm         = cfg.MODEL.DECOUPLE.NORM
-        num_conv          = cfg.MODEL.DECOUPLE.NUM_CONV
-        input_channels    = cfg.MODEL.DECOUPLE.IN_CHANNELS
+        conv_dims         = cfg.MODEL.DECOUPLE['CONV_DIM']
+        self.norm         = cfg.MODEL.DECOUPLE['NORM']
+        num_conv          = cfg.MODEL.DECOUPLE['NUM_CONV']
+        head_channels    = cfg.MODEL.DECOUPLE['HEAD_CHANNELS']
         # fmt: on
 
         self.conv_norm_relus = []
 
         for k in range(num_conv):
             conv = Conv2d(
-                input_channels if k == 0 else conv_dims,
+                head_channels if k == 0 else conv_dims,
                 conv_dims,
                 kernel_size=3,
                 stride=1,
@@ -534,7 +534,7 @@ class MaskRCNNConvUpsampleHead(nn.Module):
         self.boundary_conv_norm_relus = []
         for k in range(num_conv):
             conv = Conv2d(
-                input_channels if k == 0 else conv_dims,
+                head_channels if k == 0 else conv_dims,
                 conv_dims,
                 kernel_size=3,
                 stride=1,
@@ -546,26 +546,26 @@ class MaskRCNNConvUpsampleHead(nn.Module):
             self.add_module("boundary_fcn{}".format(k + 1), conv)
             self.boundary_conv_norm_relus.append(conv)
 
-        self.query_transform_bound_bo = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.key_transform_bound_bo = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.value_transform_bound_bo = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.output_transform_bound_bo = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.query_transform_bound_bo = Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.key_transform_bound_bo = Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.value_transform_bound_bo = Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.output_transform_bound_bo = Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
 
-        self.query_transform_bound = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.key_transform_bound = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.value_transform_bound = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.output_transform_bound = Conv2d(input_channels, input_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.query_transform_bound = Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.key_transform_bound = Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.value_transform_bound = Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.output_transform_bound = Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
 
 
-        self.scale = 1.0 / (input_channels ** 0.5)
-        self.blocker_bound_bo = nn.BatchNorm2d(input_channels, eps=1e-04) # should be zero initialized
-        self.blocker_bound = nn.BatchNorm2d(input_channels, eps=1e-04) # should be zero initialized
+        self.scale = 1.0 / (head_channels ** 0.5)
+        self.blocker_bound_bo = nn.BatchNorm2d(head_channels, eps=1e-04) # should be zero initialized
+        self.blocker_bound = nn.BatchNorm2d(head_channels, eps=1e-04) # should be zero initialized
 
         for layer in self.conv_norm_relus + self.boundary_conv_norm_relus + [self.query_transform_bound_bo, self.key_transform_bound_bo, self.value_transform_bound_bo, self.output_transform_bound_bo, self.query_transform_bound, self.key_transform_bound, self.value_transform_bound, self.output_transform_bound]:
             weight_init.c2_msra_fill(layer)
 
         # 初始化？
-        self.adaptor = nn.Conv2d(in_channels=in_channels, out_channels=256, kernel_size=1, stride=1, padding=0)
+        self.adaptor = nn.Conv2d(in_channels=in_channels, out_channels=head_channels, kernel_size=1, stride=1, padding=0)
 
         self.pose_occluder = nn.Conv2d(
             in_channels=conv_dims,
@@ -587,7 +587,7 @@ class MaskRCNNConvUpsampleHead(nn.Module):
 
     def forward(self, x):
         x = self.adaptor(x)
-        B, C, H, W = x.size() # B, 256, 64, 48
+        B, C, H, W = x.size() # B, C, 64, 48
         x_ori = x.clone()
 
         for cnt, layer in enumerate(self.boundary_conv_norm_relus):
