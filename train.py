@@ -137,7 +137,6 @@ def main():
     dump_input = torch.rand((1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
     ### this is used to visualize the network
     ### throws an assertion error on cube3, works well on bheem
-    ### commented for now
     # writer_dict['writer'].add_graph(model, (dump_input, ))
 
     logger.info(get_dcp_model_summary(model, dump_input))
@@ -203,6 +202,7 @@ def main():
     # # # # # ---------------------------------------------
     best_perf = 0.0
     last_epoch = -1
+    is_best = True
     optimizer = get_optimizer(cfg, model)
     begin_epoch = cfg.TRAIN.BEGIN_EPOCH
     checkpoint_file = os.path.join(
@@ -240,27 +240,27 @@ def main():
 
         lr_scheduler.step()
 
-        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > 205:
+        if epoch % cfg.EPOCH_EVAL_FREQ == 0:
             perf_indicator = validate_dcp(cfg, valid_loader, valid_dataset, model, criterion,
                      final_output_dir, tb_log_dir, writer_dict, epoch=epoch, print_prefix='lambda', lambda_vals=[0, 1], log=logger)
 
             if perf_indicator >= best_perf:
                 best_perf = perf_indicator
-                best_model = True
+                is_best = True
             else:
-                best_model = False
+                is_best = False
 
-            if cfg.LOG:
-                logger.info('=> model AP: {} | saving checkpoint to {}'.format(perf_indicator, final_output_dir))
-                save_checkpoint({
-                    'epoch': epoch + 1,
-                    'model': cfg.MODEL.NAME,
-                    'state_dict': model.state_dict(),
-                    'latest_state_dict': model.module.state_dict(),    #
-                    'best_state_dict': model.module.state_dict(),      #.module
-                    'perf': perf_indicator,
-                    'optimizer': optimizer.state_dict(),
-                    }, best_model, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))
+        if cfg.LOG:
+            logger.info('=> model AP: {} | saving checkpoint to {}'.format(perf_indicator, final_output_dir))
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'model': cfg.MODEL.NAME,
+                'state_dict': model.state_dict(),
+                'latest_state_dict': model.module.state_dict(),    #
+                'best_state_dict': model.module.state_dict(),      #.module
+                'perf': perf_indicator,
+                'optimizer': optimizer.state_dict(),
+                }, is_best, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))
 
     # # ----------------------------------------------
     if cfg.LOG:
@@ -270,7 +270,7 @@ def main():
         logger.info('=> saving final model state to {}'.format(
             final_model_state_file)
         )
-        torch.save(model.state_dict(), final_model_state_file)  # .module
+        torch.save(model.module.state_dict(), final_model_state_file)  # .module
         writer_dict['writer'].close()
 
 # --------------------------------------------------------------------------------
