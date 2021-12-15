@@ -1,15 +1,15 @@
 AUTO_RESUME: true
 ENV: 0
-GPUS: (1,)
+GPUS: (0,)
 WORKERS: 6
 PRINT_FREQ: 50
 EPOCH_EVAL_FREQ: 30
 
 TRAIN:
-  BATCH_SIZE_PER_GPU: 32
+  BATCH_SIZE_PER_GPU: 1
   SHUFFLE: true
   BEGIN_EPOCH: 0
-  END_EPOCH: 70
+  END_EPOCH: 210
   OPTIMIZER: adam
   LR: 0.001
   LR_FACTOR: 0.1
@@ -43,7 +43,7 @@ DEBUG:
 DESCRIPTION: pose_hrnet_IgnSE12_lambda.py
 MODEL:
   INIT_WEIGHTS: true
-  NAME: pose_hrnet_SEIgn_lambda
+  NAME: pose_hrnet_se_lambda
   NUM_JOINTS: 14
   TARGET_TYPE: gaussian
   IMAGE_SIZE:

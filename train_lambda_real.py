@@ -126,19 +126,19 @@ def main():
     )
 
     # copy model file
-    this_dir = os.path.dirname(__file__)
-    shutil.copy2(
-        os.path.join(this_dir, '../../lib/models', cfg.MODEL.NAME + '.py'),
-        final_output_dir)
-    # copy train file
-    shutil.copy2(
-        __file__,
-        final_output_dir)
-
-    # copy synthetic dataset file
-    shutil.copy2(
-        os.path.join(this_dir, '../../lib/dataset', cfg.DATASET.SYNTHETIC_DATASET + '.py'),
-        final_output_dir)
+    # this_dir = os.path.dirname(__file__)
+    # shutil.copy2(
+    #     os.path.join(this_dir, 'lib/models', cfg.MODEL.NAME + '.py'),
+    #     final_output_dir)
+    # # copy train file
+    # shutil.copy2(
+    #     __file__,
+    #     final_output_dir)
+    #
+    # # copy synthetic dataset file
+    # shutil.copy2(
+    #     os.path.join(this_dir, 'lib/dataset', cfg.DATASET.SYNTHETIC_DATASET + '.py'),
+    #     final_output_dir)
 
     writer_dict = None
     if cfg.LOG:
@@ -278,8 +278,8 @@ def main():
         if cfg.LOG:
             logger.info('====== training on lambda, lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
-        train_lambda(cfg, train_loader, model, criterion_lambda, criterion, optimizer, epoch,
-          final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
+        # train_lambda(cfg, train_loader, model, criterion_lambda, criterion, optimizer, epoch,
+        #   final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
 
         lr_scheduler.step()
 

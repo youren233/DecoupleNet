@@ -362,7 +362,7 @@ def validate_dcp(config, val_loader, val_dataset, model, criterion, output_dir,
             # get output
             input = input.cuda()
             outputs = model(input)
-            coo_pose, occee_pose = outputs
+            occ_pose, occee_pose = outputs
             if config.TEST.FLIP_TEST:
                 input_flipped = input.flip(3)
                 outputs_flipped = model(input_flipped)
@@ -374,7 +374,7 @@ def validate_dcp(config, val_loader, val_dataset, model, criterion, output_dir,
                 # feature is not aligned, shift flipped heatmap for higher accuracy
                 if config.TEST.SHIFT_HEATMAP:
                     occ_pose_flipped[:, :, :, 1:] = occ_pose_flipped.clone()[:, :, :, 0:-1]
-                coo_pose = (coo_pose + occ_pose_flipped) * 0.5
+                occ_pose = (occ_pose + occ_pose_flipped) * 0.5
 
                 # occee
                 occee_pose_flipped = flip_back(occee_pose_flipped.cpu().numpy(), val_dataset.flip_pairs)
@@ -384,7 +384,7 @@ def validate_dcp(config, val_loader, val_dataset, model, criterion, output_dir,
                     occee_pose_flipped[:, :, :, 1:] = occee_pose_flipped.clone()[:, :, :, 0:-1]
 
                 occee_pose = (occee_pose + occee_pose_flipped) * 0.5
-            for idx, output in enumerate([coo_pose, occee_pose]):
+            for idx, output in enumerate([occ_pose, occee_pose]):
                 # b x [0, 1], b x [1, 0]
                 mode = idx * torch.ones(B, 1)
 

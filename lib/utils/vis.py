@@ -10,16 +10,40 @@ from __future__ import print_function
 
 import math
 
-import numpy as np
 import torchvision
 import torch
-from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import cv2
 
 from lib.core.inference import get_max_preds
 from lib.utils.utils import batch_unnormalize_image
+
+import numpy as np
+from matplotlib import pyplot as plt
+def vis_tensor_img(tensor):
+    img = np.transpose(tensor.cpu().numpy(), (1, 2, 0))
+    plt.imshow(img)
+    plt.show()
+
+def vis_keypoint(kpts, img_name, color=(255,128,128), thr=0.5):
+    img = cv2.imread(img_name)
+    # kpts = np.array(kpts).reshape(-1,3)
+    skelenton = [[0, 2], [1, 3], [2, 4], [3, 5], [6, 8], [8, 10], [7, 9], [9, 11], [12, 13], [0, 13], [1, 13],
+                 [6,13],[7, 13]]
+    points_num = [num for num in range(14)]
+    for sk in skelenton:
+        pos1 = (int(kpts[sk[0], 0]), int(kpts[sk[0], 1]))
+        pos2 = (int(kpts[sk[1], 0]), int(kpts[sk[1] , 1]))
+        if pos1[0] > 0 and pos1[1] > 0 and pos2[0] > 0 and pos2[1] > 0:
+            cv2.line(img, pos1, pos2, color, 2, 8)
+    for points in points_num:
+        pos = (int(kpts[points,0]),int(kpts[points,1]))
+        if pos[0] > 0 and pos[1] > 0:
+            cv2.circle(img, pos,10,(0,255,255),-1) #为肢体点画红色实心圆 return img
+
+    plt.imshow(img)
+    plt.show()
 
 def save_batch_image(batch_image, file_name, nrow=8, padding=2):
     '''
