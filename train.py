@@ -115,6 +115,16 @@ def main():
         torch.distributed.init_process_group('nccl', init_method='env://')
     set_seed(seed_id=0)
 
+    # GPU list: 按卡数分配 | 否则按指定的来
+    if cfg.ENV == 2:
+        cfg.defrost()
+        cfg.GPUS = list(range(torch.cuda.device_count()))
+        cfg.freeze()
+
+    device = cfg.GPUS[args.local_rank]
+    torch.cuda.set_device(device)
+    print("=> on GPU{}".format(device))
+
     model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(cfg, is_train=True)
 
     writer_dict = None
@@ -131,20 +141,14 @@ def main():
     # writer_dict['writer'].add_graph(model, (dump_input, ))
 
     logger.info(get_dcp_model_summary(model, dump_input))
-    # 按卡数分配
-    if cfg.ENV == 2:
-        cfg.defrost()
-        cfg.GPUS = list(range(torch.cuda.device_count()))
-        print('=>cfg.GPUS:', cfg.GPUS)
-        cfg.freeze()
-    # 否则按指定的来
-    device = cfg.GPUS[args.local_rank]
-    torch.cuda.set_device(device)
-    model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
-    if dist:
-        model = torch.nn.parallel.DistributedDataParallel(model)
 
     model = model.cuda()
+
+    if dist:
+        model = torch.nn.parallel.DistributedDataParallel(model)
+    else:
+        model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
+
      # ------------------------------------------
     # define loss function (criterion) and optimizer
     criterion = JointsMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda()
@@ -198,8 +202,6 @@ def main():
 
     # # # # # ---------------------------------------------
     best_perf = 0.0
-    perf_indicator = 0.0
-    best_model = False
     last_epoch = -1
     optimizer = get_optimizer(cfg, model)
     begin_epoch = cfg.TRAIN.BEGIN_EPOCH
