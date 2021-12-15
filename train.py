@@ -202,6 +202,7 @@ def main():
     # # # # # ---------------------------------------------
     best_perf = 0.0
     last_epoch = -1
+    perf_indicator = 0.0
     is_best = True
     optimizer = get_optimizer(cfg, model)
     begin_epoch = cfg.TRAIN.BEGIN_EPOCH
