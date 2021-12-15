@@ -131,15 +131,20 @@ def main():
     # writer_dict['writer'].add_graph(model, (dump_input, ))
 
     logger.info(get_dcp_model_summary(model, dump_input))
-
-    # device = cfg.GPUS[args.local_rank]
-    torch.cuda.set_device("cuda:0")
-    # if cfg.ENV != 2:
-    #     model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
-
+    # 按卡数分配
+    if cfg.ENV == 2:
+        cfg.defrost()
+        cfg.GPUS = list(range(torch.cuda.device_count()))
+        print('=>cfg.GPUS:', cfg.GPUS)
+        cfg.freeze()
+    # 否则按指定的来
+    device = cfg.GPUS[args.local_rank]
+    torch.cuda.set_device(device)
+    model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
     if dist:
         model = torch.nn.parallel.DistributedDataParallel(model)
 
+    model = model.cuda()
      # ------------------------------------------
     # define loss function (criterion) and optimizer
     criterion = JointsMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda()
@@ -166,7 +171,7 @@ def main():
             normalize,
         ])
     )
-    
+
     train_sampler = None
     if dist:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -222,15 +227,14 @@ def main():
     )
     # ----------------------------------------------------
     criterion = criterion.cuda()
-    model = model.cuda()
     for epoch in range(begin_epoch, cfg.TRAIN.END_EPOCH):
 
         # # # train for one epoch
         if cfg.LOG:
             logger.info('====== training on lambda, lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
-        # train_dcp(cfg, train_loader, model, criterion, optimizer, epoch,
-        #   final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
+        train_dcp(cfg, train_loader, model, criterion, optimizer, epoch,
+          final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
 
         lr_scheduler.step()
 
@@ -250,8 +254,8 @@ def main():
                     'epoch': epoch + 1,
                     'model': cfg.MODEL.NAME,
                     'state_dict': model.state_dict(),
-                    'latest_state_dict': model.state_dict(),    # .module
-                    'best_state_dict': model.state_dict(),      #.module
+                    'latest_state_dict': model.module.state_dict(),    #
+                    'best_state_dict': model.module.state_dict(),      #.module
                     'perf': perf_indicator,
                     'optimizer': optimizer.state_dict(),
                     }, best_model, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))
