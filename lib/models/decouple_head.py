@@ -223,10 +223,20 @@ class MaskRCNNConvUpsampleHead(nn.Module):
 
         return mask, boundary, mask_bo, boundary_bo
 
+# double & refine
+def pose_refine(pose, parsing, pose_fea, name):
+    is_BN = False
+    # 1*1 convolution remaps the heatmaps to match the number of channels of the intermediate features.
+    pose = nn.Conv2d(pose, 128, 1, 1, relu=True, bn=is_BN, name='pose_remap')
+    parsing = nn.Conv2d(parsing, 128, 1, 1, relu=True, bn=is_BN, name='parsing_remap')
+    # concat 
+    pos_par = torch.cat([pose, parsing, pose_fea], 3)
+    conv1 = nn.Conv2d(pos_par, 512, 3, 1, relu=True, bn=is_BN, name='conv1')
+    conv2 = nn.Conv2d(conv1, 256, 5, 1, relu=True, bn=is_BN, name='conv2')
+    conv3 = nn.Conv2d(conv2, 256, 7, 1, relu=True, bn=is_BN, name='conv3')
+    conv4 = nn.Conv2d(conv3, 256, 9, 1, relu=True, bn=is_BN, name='conv4')
 
-def build_mask_head(cfg, input_shape):
-    """
-    Build a mask head defined by `cfg.MODEL.ROI_MASK_HEAD.NAME`.
-    """
-    name = cfg.MODEL.ROI_MASK_HEAD.NAME
-    return ROI_MASK_HEAD_REGISTRY.get(name)(cfg, input_shape)
+    conv5 = nn.Conv2d(conv4, 256, 1, 1, relu=True, bn=is_BN, name='conv5')
+    conv6 = nn.Conv2d(conv5, 16, 1, 1, relu=False, bn=is_BN, name='conv6')
+
+    return conv6, conv4

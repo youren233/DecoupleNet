@@ -13,7 +13,7 @@ import logging
 
 import torch
 import torch.nn as nn
-
+from lib.amzmodel.attention.CBAM import CBAMBlock
 
 BN_MOMENTUM = 0.1
 logger = logging.getLogger(__name__)
@@ -140,7 +140,7 @@ class HighResolutionModule(nn.Module):
                          stride=1):
         downsample = None
         if stride != 1 or \
-           self.num_inchannels[branch_index] != num_channels[branch_index] * block.expansion:
+                self.num_inchannels[branch_index] != num_channels[branch_index] * block.expansion:
             downsample = nn.Sequential(
                 nn.Conv2d(
                     self.num_inchannels[branch_index],
@@ -203,14 +203,14 @@ class HighResolutionModule(nn.Module):
                                 1, 1, 0, bias=False
                             ),
                             nn.BatchNorm2d(num_inchannels[i]),
-                            nn.Upsample(scale_factor=2**(j-i), mode='nearest')
+                            nn.Upsample(scale_factor=2 ** (j - i), mode='nearest')
                         )
                     )
                 elif j == i:
                     fuse_layer.append(None)
                 else:
                     conv3x3s = []
-                    for k in range(i-j):
+                    for k in range(i - j):
                         if k == i - j - 1:
                             num_outchannels_conv3x3 = num_inchannels[i]
                             conv3x3s.append(
@@ -320,7 +320,7 @@ class PoseHighResolutionNet(nn.Module):
         self.stage4, pre_stage_channels = self._make_stage(
             self.stage4_cfg, num_channels, multi_scale_output=False)
 
-        self.decouple_head = MaskRCNNConvUpsampleHead(cfg, in_channels=pre_stage_channels[0])
+        self.decouple_head = CoarseRefineDecouple(cfg, in_channels=pre_stage_channels[0])
 
         self.pretrained_layers = extra['PRETRAINED_LAYERS']
 
@@ -348,10 +348,10 @@ class PoseHighResolutionNet(nn.Module):
                     transition_layers.append(None)
             else:
                 conv3x3s = []
-                for j in range(i+1-num_branches_pre):
+                for j in range(i + 1 - num_branches_pre):
                     inchannels = num_channels_pre_layer[-1]
                     outchannels = num_channels_cur_layer[i] \
-                        if j == i-num_branches_pre else inchannels
+                        if j == i - num_branches_pre else inchannels
                     conv3x3s.append(
                         nn.Sequential(
                             nn.Conv2d(
@@ -449,9 +449,9 @@ class PoseHighResolutionNet(nn.Module):
                 x_list.append(y_list[i])
         y_list = self.stage4(x_list)
 
-        occ_pose, occee_pose = self.decouple_head(y_list[0])
+        pose_dict = self.decouple_head(y_list[0])
 
-        return occ_pose, occee_pose
+        return pose_dict
 
     def init_weights(self, pretrained=''):
         logger.info('=> init weights from normal distribution')
@@ -477,189 +477,145 @@ class PoseHighResolutionNet(nn.Module):
 
             need_init_state_dict = {}
             for name, m in pretrained_state_dict.items():
-                if name.split('.')[0] in self.pretrained_layers \
-                   or self.pretrained_layers[0] is '*':
+                if name.split('.')[0] in self.pretrained_layers or self.pretrained_layers[0] is '*':
                     need_init_state_dict[name] = m
             self.load_state_dict(need_init_state_dict, strict=False)
         elif pretrained:
             logger.error('=> please download pre-trained models first!')
             raise ValueError('{} is not exist!'.format(pretrained))
 
-import fvcore.nn.weight_init as weight_init
+
 import torch
 from torch import nn
-from torch.nn import functional as F
-from lib.utils import comm
-from lib.layers.wrappers import Conv2d, ConvTranspose2d, cat
-from lib.layers.batch_norm import get_norm
 
 
-class MaskRCNNConvUpsampleHead(nn.Module):
-    """
-    A mask head with several conv layers, plus an upsample layer (with `ConvTranspose2d`).
-    """
+class CoarseRefineDecouple(nn.Module):
 
     def __init__(self, cfg, in_channels):
-        """
-        The following attributes are parsed from config:
-            num_conv: the number of conv layers
-            conv_dim: the dimension of the conv layers
-            norm: normalization for the conv layers
-        """
-        super(MaskRCNNConvUpsampleHead, self).__init__()
+        super(CoarseRefineDecouple, self).__init__()
+        hidden_channels = cfg.MODEL.DECOUPLE['HIDDEN_CHANNELS']
+        coarse_num_blocks = cfg.MODEL.DECOUPLE['COA_NUM_BLOCKS']
+        refine_num_blocks = cfg.MODEL.DECOUPLE['REF_NUM_BLOCKS']
+        num_joints = cfg['MODEL']['NUM_JOINTS']
 
-        # fmt: off
-        conv_dims         = cfg.MODEL.DECOUPLE['CONV_DIM']
-        self.norm         = cfg.MODEL.DECOUPLE['NORM']
-        num_conv          = cfg.MODEL.DECOUPLE['NUM_CONV']
-        head_channels    = cfg.MODEL.DECOUPLE['HEAD_CHANNELS']
-        # fmt: on
-
-        self.conv_norm_relus = []
-        for k in range(num_conv):
-            conv = Conv2d(
-                head_channels if k == 0 else conv_dims,
-                conv_dims,
-                kernel_size=3,
-                stride=1,
-                padding=1,
-                bias=not self.norm,
-                norm=get_norm(self.norm, conv_dims),
-                activation=F.relu,
-            )
-            self.add_module("oc_fcn{}".format(k + 1), conv)
-            self.conv_norm_relus.append(conv)
-        self.conv_norm_relus = nn.ModuleList(self.conv_norm_relus)
-
-        self.conv_layers_up = []
-        for k in range(num_conv):
-            conv = Conv2d(
-                head_channels if k == 0 else conv_dims,
-                conv_dims,
-                kernel_size=3,
-                stride=1,
-                padding=1,
-                bias=not self.norm,
-                norm=get_norm(self.norm, conv_dims),
-                activation=F.relu,
-            )
-            self.add_module("oced_fcn{}".format(k + 1), conv)
-            self.conv_layers_up.append(conv)
-        self.conv_layers_up = nn.ModuleList(self.conv_layers_up)
-
-        self.query_transform_up = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False) # Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.key_transform_up = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.value_transform_up = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.output_transform_up = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-
-        self.query_transform_down = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.key_transform_down = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.value_transform_down = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.output_transform_down = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-
-
-        self.scale = 1.0 / (head_channels ** 0.5)
-        self.norm_up = nn.BatchNorm2d(head_channels, eps=1e-04) # should be zero initialized
-        self.norm_down = nn.BatchNorm2d(head_channels, eps=1e-04) # should be zero initialized
-
-        for layer in list(self.conv_norm_relus) + list(self.conv_layers_up) + [self.query_transform_up, self.key_transform_up, self.value_transform_up, self.output_transform_up, self.query_transform_down, self.key_transform_down, self.value_transform_down, self.output_transform_down]:
-            weight_init.c2_msra_fill(layer)
-
-        # 初始化？
-        # self.adaptor = nn.Conv2d(in_channels=in_channels, out_channels=head_channels, kernel_size=1, stride=1, padding=0)
-
-        self.pose_occluder = nn.Conv2d(
-            in_channels=conv_dims,
-            out_channels=cfg['MODEL']['NUM_JOINTS'],
+        # ---------------------- up -------------------
+        self.transition_coarse = nn.Sequential(
+            nn.Conv2d(
+                in_channels,
+                hidden_channels,
+                1, 1, bias=False
+            ),
+            nn.BatchNorm2d(hidden_channels),
+            nn.ReLU(inplace=True)
+        )
+        # coarse branch
+        self.coarse_extract_up = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
+        self.coarse_predictor_up = nn.Conv2d(
+            in_channels=hidden_channels,
+            out_channels=num_joints,
             kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
             stride=1,
             padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
         )
-        nn.init.constant_(self.pose_occluder.bias, 0)
 
-        self.pose_occludee = nn.Conv2d(
-            in_channels=conv_dims,
-            out_channels=cfg['MODEL']['NUM_JOINTS'],
+
+        # refine branch
+        self.refine_feature_fuse_up = self._make_fuse_layer(refine_num_blocks, hidden_channels, hidden_channels)
+        self.refine_predictor_up = nn.Conv2d(
+            in_channels=hidden_channels,
+            out_channels=num_joints,
             kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
             stride=1,
             padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
         )
-        nn.init.constant_(self.pose_occludee.bias, 0)
+
+        self.transition_refine = nn.Sequential(
+            nn.Conv2d(
+                in_channels + num_joints * 2,
+                hidden_channels,
+                1, 1, bias=False
+            ),
+            nn.BatchNorm2d(hidden_channels),
+            nn.ReLU(inplace=True)
+        )
+        # ---------------------- down -------------------
+        # coarse branch
+        self.coarse_extract_down = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
+        self.coarse_predictor_down = nn.Conv2d(
+            in_channels=hidden_channels,
+            out_channels=num_joints,
+            kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
+            stride=1,
+            padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
+        )
+
+
+        # refine branch
+        self.refine_feature_fuse_down = self._make_fuse_layer(refine_num_blocks, hidden_channels, hidden_channels)
+        self.refine_predictor_down = nn.Conv2d(
+            in_channels=hidden_channels,
+            out_channels=num_joints,
+            kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
+            stride=1,
+            padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
+        )
 
     def forward(self, x):
-        B, C, H, W = x.size() # B, C, 64, 48
-        x_ori = x.clone()
+        x_residual = x.clone()
 
-        for cnt, layer in enumerate(self.conv_layers_up):
-            x = layer(x) # [16, 256, 64, 48]s
+        # transition
+        x = self.transition_coarse(x)
+        # --------------------------- coarse ------------------------
+        x_down = x.clone()
+        # up
+        x = self.coarse_extract_up(x)
+        coarse_out_up = self.coarse_predictor_up(x)
+        # down
+        x_down = self.coarse_extract_down(x_down)
+        coarse_out_down = self.coarse_predictor_down(x_down)
 
-            if cnt == 1 and len(x) != 0:
-                # GCN!
 
-                # x_input = AddCoords()(x)
-                # x_query | query_transform_bound_bo: Conv2d(256, 256, kernel_size=(1, 1), stride=(1, 1))
-                x_query_up = self.query_transform_up(x).view(B, C, -1) # B, 256, 3072
-                x_query_up = torch.transpose(x_query_up, 1, 2) # B, 3072, 256 (B,HW,C)
-                # x_key: B,C,HW | key_transform_bound_bo: Conv2d(256, 256, kernel_size=(1, 1), stride=(1, 1), bias=False)
-                x_key_up = self.key_transform_up(x).view(B, C, -1) # B, 256, 3072
-                # x_value: B,HW,C
-                x_value_up = self.value_transform_up(x).view(B, C, -1)  # B, 256, 3072 (B,C,HW)
-                x_value_up = torch.transpose(x_value_up, 1, 2)# B, 3072, 256
-                # W = Q^T K: B,HW,HW(可学习的参数?)
-                x_w_up = torch.matmul(x_query_up, x_key_up) * self.scale  # B, 3072, 3072
-                x_w_up = F.softmax(x_w_up, dim=-1)
-                # x_relation = WV: B,HW,C
-                x_relation_up = torch.matmul(x_w_up, x_value_up)  # B, 3072, 256
-                x_relation_up = torch.transpose(x_relation_up, 1, 2)    # B, 256, 3072 (B,C,HW)
-                x_relation_up = x_relation_up.view(B,C,H,W) # 16, 256, 64, 48 (B,C,H,W)
 
-                x_relation_up = self.output_transform_up(x_relation_up)   # 16, 256, 64, 48
-                x_relation_up = self.norm_up(x_relation_up)    # 16, 256, 64, 48
+        # transition
+        x = torch.cat([coarse_out_up, coarse_out_down, x_residual], 1)
+        x = self.transition_refine(x)
 
-                x = x + x_relation_up
+        x_down = x.clone()
+        # --------------------------- refine ------------------------
+        # up
+        x = self.refine_feature_fuse_up(x)
+        refine_out_up = self.refine_predictor_up(x)
+        # down
+        x_down = self.refine_feature_fuse_down(x_down)
+        refine_out_down = self.refine_predictor_down(x_down)
 
-        occ_feat = x.clone()  # [B, 256, 64, 48]
-        # occ pose head
-        pose_occ = self.pose_occluder(occ_feat)
+        return {
+            'cu': coarse_out_up,
+            'cd':coarse_out_down,
+            'ru': refine_out_up,
+            'rd': refine_out_down
+        }
 
-        # 下路分支
-        x = x_ori + x
-        for cnt, layer in enumerate(self.conv_norm_relus):
-            x = layer(x)
-            if cnt == 1 and len(x) != 0:
-                # x: B,C,H,W
-                #x_input = AddCoords()(x)
-                # x_query: B,C,HW
-                x_query_bound = self.query_transform_down(x).view(B, C, -1)
-                x_query_bound = torch.transpose(x_query_bound, 1, 2) # B,HW,C
-                # x_key: B,C,HW
-                x_key_bound = self.key_transform_down(x).view(B, C, -1)
-                # x_value: B,C,HW
-                x_value_bound = self.value_transform_down(x).view(B, C, -1)
-                x_value_bound = torch.transpose(x_value_bound, 1, 2) # B,HW,C
-                # W = Q^T K: B,HW,HW
-                x_w_bound = torch.matmul(x_query_bound, x_key_bound) * self.scale
-                x_w_bound = F.softmax(x_w_bound, dim=-1)
-                # x_relation = WV: B,HW,C
-                x_relation_bound = torch.matmul(x_w_bound, x_value_bound)
-                x_relation_bound = torch.transpose(x_relation_bound, 1, 2) # B,C,HW
-                x_relation_bound = x_relation_bound.view(B,C,H,W) # B,C,H,W
+    def _make_extract_layer(self, num_basicBlock, in_channels, out_channels):
+        layers = []
+        for i in range(num_basicBlock):
+            layers.append(BasicBlock(in_channels, out_channels))
+        cbam = CBAMBlock(out_channels)
+        layers.append(cbam)
+        return nn.Sequential(*layers)
 
-                x_relation_bound = self.output_transform_down(x_relation_bound)
-                x_relation_bound = self.norm_down(x_relation_bound)
-
-                x = x + x_relation_bound
-
-        occee_feat = x.clone()
-        # occee pose head
-        pose_occee = self.pose_occludee(occee_feat)
-
-        return pose_occ, pose_occee
+    def _make_fuse_layer(self, num_basicBlock, in_channels, out_channels):
+        layers = []
+        for i in range(num_basicBlock):
+            layers.append(BasicBlock(in_channels, out_channels))
+        cbam = CBAMBlock(out_channels)
+        layers.append(cbam)
+        return nn.Sequential(*layers)
 
 def get_pose_net(cfg, is_train, **kwargs):
     model = PoseHighResolutionNet(cfg, **kwargs)
 
-    print('==============> Got pose_hrnet_decouple')
+    print('==============> Got pose_hrnet_decouple_cnn')
     if is_train and cfg['MODEL']['INIT_WEIGHTS']:
         model.init_weights(cfg['MODEL']['PRETRAINED'])
 

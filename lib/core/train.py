@@ -490,7 +490,7 @@ def train_lambda(config, train_loader, model, criterion_lambda, criterion, optim
     train_loader.close()
     return
 
-# dcp-------
+# dcp-cnn-------
 def train_dcp(config, train_loader, model, criterion, optimizer, epoch,
                  output_dir, tb_log_dir, writer_dict, print_prefix=''):
     accAMer = AverageMeter()
@@ -560,6 +560,78 @@ def train_dcp(config, train_loader, model, criterion, optimizer, epoch,
     train_loader.close()
     return
 # dcp-------
+
+# dcp-cnn------------
+def train_dcp_cnn(config, train_loader, model, criterion, optimizer, writer_dict):
+    accAMer = AverageMeter()
+    pose_lossAMer = AverageMeter()
+    cu_weight, cd_weight, ru_weight, rd_weight = config['MODEL']['DECOUPLE']['OUT_WEIGHT']
+
+    # switch to train mode
+    model.train()
+
+    train_loader = tqdm(train_loader)
+
+    # end = time.time()
+    for i, (input, target_oc, target_weight_oc, meta_oc, target_oced, target_weight_oced, meta_oced) in enumerate(train_loader):
+        # data_time.update(time.time() - end)
+
+        input = input.cuda()
+        pose_dict = model(input)
+        cu = pose_dict['cu']
+        cd = pose_dict['cd']
+        ru = pose_dict['ru']
+        rd = pose_dict['rd']
+
+        target_oc = target_oc.cuda(non_blocking=True)
+        target_weight_oc = target_weight_oc.cuda(non_blocking=True)
+        target_oced = target_oced.cuda(non_blocking=True)
+        target_weight_oced = target_weight_oced.cuda(non_blocking=True)
+
+        loss_cu = criterion(cu, target_oc, target_weight_oc)
+        loss_ru = criterion(ru, target_oc, target_weight_oc)
+
+        loss_cd = criterion(cd, target_oced, target_weight_oced)
+        loss_rd = criterion(rd, target_oced, target_weight_oced)
+
+        pose_loss = loss_cu*cu_weight + loss_ru*ru_weight + loss_cd*cd_weight + loss_rd*rd_weight
+        # loss = pose_loss + 0.1*diversity_loss
+        loss = pose_loss
+
+        # compute gradient and do update step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # measure accuracy and record loss
+        pose_lossAMer.update(pose_loss.item(), input.size(0))
+        _, acc_cu, cnt_cu, pred_a = accuracy(cu.detach().cpu().numpy(), target_oc.detach().cpu().numpy())
+        _, acc_ru, cnt_ru, pred_a = accuracy(ru.detach().cpu().numpy(), target_oc.detach().cpu().numpy())
+        _, acc_cd, cnt_cd, pred_b = accuracy(cd.detach().cpu().numpy(), target_oced.detach().cpu().numpy())
+        _, acc_rd, cnt_rd, pred_b = accuracy(rd.detach().cpu().numpy(), target_oced.detach().cpu().numpy())
+        accAMer.update(acc_cu, cnt_cu)
+        accAMer.update(acc_ru, cnt_ru)
+        accAMer.update(acc_cd, cnt_cd)
+        accAMer.update(acc_rd, cnt_rd)
+        # measure elapsed time
+        # batch_time.update(time.time() - end)
+        # end = time.time()
+
+        if config.LOG:
+            msg = 'Loss:{loss:.5f} Acc:{acc:.5f}'.format(loss=pose_lossAMer.val, acc=accAMer.val)
+            train_loader.set_description(msg)
+
+        if i % config.PRINT_FREQ == 0 and config.LOG:
+            writer = writer_dict['writer']
+            global_steps = writer_dict['train_global_steps']
+            writer.add_scalar('train_loss', pose_lossAMer.val, global_steps)
+            writer.add_scalar('train_acc', accAMer.val, global_steps)
+            writer_dict['train_global_steps'] = global_steps + 1
+
+    train_loader.close()
+    return
+# dcp-cnn------------
+
 # --------------------------------------------------------------------------------
 def train_cutout(config, train_loader, model, criterion, optimizer, epoch,
                  output_dir, tb_log_dir, writer_dict, print_prefix=''):

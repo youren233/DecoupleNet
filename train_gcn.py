@@ -53,7 +53,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-decouple.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-decouple-gcn.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -145,8 +145,8 @@ def main():
 
     if dist:
         model = torch.nn.parallel.DistributedDataParallel(model)
-    else:
-        model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
+    # else:
+    #     model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
 
      # ------------------------------------------
     # define loss function (criterion) and optimizer
@@ -236,8 +236,8 @@ def main():
         if cfg.LOG:
             logger.info('====== training on lambda, lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
-        train_dcp(cfg, train_loader, model, criterion, optimizer, epoch,
-          final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
+        # train_dcp(cfg, train_loader, model, criterion, optimizer, epoch,
+        #   final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
 
         lr_scheduler.step()
 
@@ -257,8 +257,6 @@ def main():
                 'epoch': epoch + 1,
                 'model': cfg.MODEL.NAME,
                 'state_dict': model.state_dict(),
-                'latest_state_dict': model.module.state_dict(),    #
-                'best_state_dict': model.module.state_dict(),      #.module
                 'perf': perf_indicator,
                 'optimizer': optimizer.state_dict(),
                 }, is_best, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))

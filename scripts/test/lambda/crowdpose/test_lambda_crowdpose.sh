@@ -4,7 +4,7 @@ cd ../../../..
 # # # -----------------------------------------------------------
 # # # # # # # # # # # -----------------------------------------------------------
 #  CUDA_VISIBLE_DEVICES=0,1,2, python tools/lambda/test_decouple.py \
-#      --cfg experiments/crowdpose/hrnet/w32_256x192-pub.yaml \
+#      --cfg experiments/crowdpose/hrnet/w32_256x192-xx.yaml \
 #      GPUS '(0,1,2,)' \
 #      TEST.MODEL_FILE 'models/lambda/crowdpose/Logs/w32/256/checkpoint_102.pth' \
 #      OUTPUT_DIR 'Outputs/outputs/crowdpose/hrnet' \

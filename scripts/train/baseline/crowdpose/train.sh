@@ -32,7 +32,7 @@ cd ../../../..
 
 # # ## uncomment for hrnet w48-256
 # # # # # # # # # # # -----------------------------------------------------------
-#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/train.py \
+#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/train_gcn.py \
 #      --cfg experiments/crowdpose/hrnet/w48_256x192_adam_lr1e-3.yaml \
 #      GPUS '(0,1,2)' \
 #      OUTPUT_DIR 'Outputs/outputs/crowdpose'\
@@ -61,7 +61,7 @@ cd ../../../..
 
 # # ## uncomment for hrnet w32-384
 # # # # # # # # # # # -----------------------------------------------------------
-#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/train.py \
+#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/train_gcn.py \
 #      --cfg experiments/crowdpose/hrnet/w32_384x288_adam_lr1e-3.yaml \
 #      GPUS '(0,1,2)' \
 #      OUTPUT_DIR 'Outputs/outputs/crowdpose'\
@@ -89,8 +89,8 @@ cd ../../../..
 
 # # ## uncomment for hrnet w32-256
 # # # # # # # # # # # -----------------------------------------------------------
-#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/train.py \
-#      --cfg experiments/crowdpose/hrnet/w32_256x192-pub.yaml \
+#  CUDA_VISIBLE_DEVICES=0,1,2, python tools/train_gcn.py \
+#      --cfg experiments/crowdpose/hrnet/w32_256x192-xx.yaml \
 #      GPUS '(0,1,2)' \
 #      OUTPUT_DIR 'Outputs/outputs/crowdpose'\
 #      LOG_DIR 'Outputs/logs/crowdpose'\

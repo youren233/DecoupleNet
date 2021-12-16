@@ -43,10 +43,10 @@ class SpatialAttention(nn.Module):
 
 class CBAMBlock(nn.Module):
 
-    def __init__(self, channel=512,reduction=16,kernel_size=49):
+    def __init__(self, channel,reduction=16):
         super().__init__()
         self.ca=ChannelAttention(channel=channel,reduction=reduction)
-        self.sa=SpatialAttention(kernel_size=kernel_size)
+        self.sa=SpatialAttention()
 
 
     def init_weights(self):
@@ -72,9 +72,9 @@ class CBAMBlock(nn.Module):
 
 
 if __name__ == '__main__':
-    input=torch.randn(50,512,64,48)
-    kernel_size=input.shape[2]
-    cbam = CBAMBlock(channel=512,reduction=16,kernel_size=kernel_size)
+    input=torch.randn(16,32,64,48)
+    # kernel_size=input.shape[2]
+    cbam = CBAMBlock(channel=32,reduction=16)
     output=cbam(input)
     print(output.shape)
 

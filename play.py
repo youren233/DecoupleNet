@@ -49,7 +49,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-decouple.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-decouple-cnn.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -90,7 +90,7 @@ def parse_args():
 def main():
     args = parse_args()
     update_config(cfg, args)
-    model = eval('lib.models.'+"pose_hrnet_decouple"+'.get_pose_net')(
+    model = eval('lib.models.'+"pose_hrnet_decouple_cnn"+'.get_pose_net')(
         cfg, is_train=True
     )
 
@@ -98,9 +98,11 @@ def main():
         (1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0])
     )
 
-    occ, occee = model(dump_input)
-    print(occ.shape)
-    print(occee.shape)
+    pose_dict = model(dump_input)
+    print(pose_dict['cu'].shape)
+    print(pose_dict['cd'].shape)
+    print(pose_dict['ru'].shape)
+    print(pose_dict['rd'].shape)
     print('over')
 
 

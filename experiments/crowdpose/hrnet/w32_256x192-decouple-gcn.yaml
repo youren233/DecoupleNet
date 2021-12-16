@@ -1,13 +1,12 @@
 AUTO_RESUME: true
-ENV: 1
-GPUS: (2,)
-OUTPUT_DIR: 'output'
-WORKERS: 6
+ENV: 0
+GPUS: (0,)
+WORKERS: 16
 PRINT_FREQ: 50
-EPOCH_EVAL_FREQ: 30
+EPOCH_EVAL_FREQ: 300
 
 TRAIN:
-  BATCH_SIZE_PER_GPU: 32
+  BATCH_SIZE_PER_GPU: 22
   SHUFFLE: true
   BEGIN_EPOCH: 0
   END_EPOCH: 210
@@ -23,12 +22,13 @@ TRAIN:
   MOMENTUM: 0.9
   NESTEROV: false
 TEST:
-  BATCH_SIZE_PER_GPU: 32
+  BATCH_SIZE_PER_GPU: 64
+  DECAY_THRE: 1.0
   COCO_BBOX_FILE: 'coco/person_detection_results/COCO_val2017_detections_AP_H_56_person.json'
   BBOX_THRE: 1.0
   IMAGE_THRE: 0.0
   IN_VIS_THRE: 0.2
-  MODEL_FILE: 'output/TrainIgnoreSE_w32_256x192/checkpoint_210.pth'
+  MODEL_FILE: 'output/TrainSS_w32_256x192-xx/checkpoint_210.pth'
   NMS_THRE: 1.0
   OKS_THRE: 0.9
   USE_GT_BBOX: true
@@ -41,12 +41,18 @@ DEBUG:
   SAVE_BATCH_IMAGES_PRED: true
   SAVE_HEATMAPS_GT: true
   SAVE_HEATMAPS_PRED: true
-
+DESCRIPTION: 'pose_hrnet_decouple, just double head + 1 residual'
 MODEL:
   INIT_WEIGHTS: true
-  NAME: pose_hrnet_ss_lambda
+  NAME: pose_hrnet_decouple_unchged
+  DECOUPLE:
+    HEAD_CHANNELS: 32
+    CONV_DIM: 32
+    NORM: ''
+    NUM_CONV: 2
+    OCC_WEIGHT: 1
+    OCCEE_WEIGHT: 1
   NUM_JOINTS: 14
-  PRETRAINED: 'models/hrnet_w32-36af842e.pth'
   TARGET_TYPE: gaussian
   IMAGE_SIZE:
   - 192
