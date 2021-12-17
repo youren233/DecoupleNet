@@ -22,13 +22,13 @@ TRAIN:
   MOMENTUM: 0.9
   NESTEROV: false
 TEST:
-  BATCH_SIZE_PER_GPU: 64
-  DECAY_THRE: 1.0
+  BATCH_SIZE_PER_GPU: 10
+  DECAY_THRE: 0.5
   COCO_BBOX_FILE: 'coco/person_detection_results/COCO_val2017_detections_AP_H_56_person.json'
   BBOX_THRE: 1.0
   IMAGE_THRE: 0.0
   IN_VIS_THRE: 0.2
-  MODEL_FILE: 'output/TrainSS_w32_256x192-xx/checkpoint_210.pth'
+  MODEL_FILE: 'checkpoint_210.pth'
   NMS_THRE: 1.0
   OKS_THRE: 0.9
   USE_GT_BBOX: true
@@ -44,7 +44,7 @@ DEBUG:
 DESCRIPTION: 'pose_hrnet_decouple, just double head + 1 residual'
 MODEL:
   INIT_WEIGHTS: true
-  NAME: pose_hrnet_decouple_unchged
+  NAME: pose_hrnet_decouple
   DECOUPLE:
     HEAD_CHANNELS: 32
     CONV_DIM: 32

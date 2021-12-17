@@ -240,3 +240,55 @@ def pose_refine(pose, parsing, pose_fea, name):
     conv6 = nn.Conv2d(conv5, 16, 1, 1, relu=False, bn=is_BN, name='conv6')
 
     return conv6, conv4
+
+class KRCNNConvDeconvUpsampleHead(nn.Module):
+    """
+    A standard keypoint head containing a series of 3x3 convs, followed by
+    a transpose convolution and bilinear interpolation for upsampling.
+    """
+
+    def __init__(self, cfg, input_shape: ShapeSpec):
+        """
+        The following attributes are parsed from config:
+            conv_dims: an iterable of output channel counts for each conv in the head
+                         e.g. (512, 512, 512) for three convs outputting 512 channels.
+            num_keypoints: number of keypoint heatmaps to predicts, determines the number of
+                           channels in the final output.
+        """
+        super(KRCNNConvDeconvUpsampleHead, self).__init__()
+
+        # fmt: off
+        # default up_scale to 2 (this can eventually be moved to config)
+        up_scale      = 2
+        conv_dims     = cfg.MODEL.ROI_KEYPOINT_HEAD.CONV_DIMS
+        num_keypoints = cfg.MODEL.ROI_KEYPOINT_HEAD.NUM_KEYPOINTS
+        in_channels   = input_shape.channels
+        # fmt: on
+
+        self.blocks = []
+        for idx, layer_channels in enumerate(conv_dims, 1):
+            module = Conv2d(in_channels, layer_channels, 3, stride=1, padding=1)
+            self.add_module("conv_fcn{}".format(idx), module)
+            self.blocks.append(module)
+            in_channels = layer_channels
+
+        deconv_kernel = 4
+        self.score_lowres = ConvTranspose2d(
+            in_channels, num_keypoints, deconv_kernel, stride=2, padding=deconv_kernel // 2 - 1
+        )
+        self.up_scale = up_scale
+
+        for name, param in self.named_parameters():
+            if "bias" in name:
+                nn.init.constant_(param, 0)
+            elif "weight" in name:
+                # Caffe2 implementation uses MSRAFill, which in fact
+                # corresponds to kaiming_normal_ in PyTorch
+                nn.init.kaiming_normal_(param, mode="fan_out", nonlinearity="relu")
+
+    def forward(self, x):
+        for layer in self.blocks:
+            x = F.relu(layer(x))
+        x = self.score_lowres(x)
+        x = interpolate(x, scale_factor=self.up_scale, mode="bilinear", align_corners=False)
+        return x

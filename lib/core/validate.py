@@ -334,8 +334,8 @@ def validate_lambda_quantitative(config, val_loader, val_dataset, model, criteri
     return perf_indicator
 
 # dcp
-def validate_dcp(config, val_loader, val_dataset, model, criterion, output_dir,
-                                 tb_log_dir, writer_dict=None, epoch=-1, print_prefix='', lambda_vals=[0, 1], log=logger):
+def validate_dcp_gcn(config, val_loader, val_dataset, model, output_dir,
+                     writer_dict=None, epoch=-1, lambda_vals=[0, 1], log=logger):
     accAMer = AverageMeter()
 
     if not os.path.exists(output_dir):

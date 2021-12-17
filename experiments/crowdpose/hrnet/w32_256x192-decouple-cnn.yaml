@@ -1,7 +1,7 @@
 AUTO_RESUME: true
 ENV: 0
-GPUS: (1,)
-WORKERS: 16
+GPUS: (0,)
+WORKERS: 12
 PRINT_FREQ: 50
 EPOCH_EVAL_FREQ: 30
 
@@ -23,7 +23,7 @@ TRAIN:
   NESTEROV: false
 TEST:
   BATCH_SIZE_PER_GPU: 64
-  DECAY_THRE: 1.0
+  DECAY_THRE: 0.5
   COCO_BBOX_FILE: 'coco/person_detection_results/COCO_val2017_detections_AP_H_56_person.json'
   BBOX_THRE: 1.0
   IMAGE_THRE: 0.0
@@ -47,8 +47,8 @@ MODEL:
   NAME: pose_hrnet_decouple_cnn
   DECOUPLE:
     HIDDEN_CHANNELS: 64
-    COA_NUM_BLOCKS: 2
-    REF_NUM_BLOCKS: 4
+    COA_NUM_BLOCKS: 8
+    REF_NUM_BLOCKS: 8
     OUT_WEIGHT:
       - 0.5
       - 0.5

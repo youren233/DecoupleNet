@@ -36,7 +36,7 @@ from lib.config import cfg
 from lib.config import update_config
 from lib.core.loss import JointsMSELoss
 from lib.core.train import train_dcp
-from lib.core.validate import validate_dcp
+from lib.core.validate import validate_dcp_gcn
 
 import lib.dataset
 import lib.models
@@ -145,8 +145,8 @@ def main():
 
     if dist:
         model = torch.nn.parallel.DistributedDataParallel(model)
-    # else:
-    #     model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
+    else:
+        model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
 
      # ------------------------------------------
     # define loss function (criterion) and optimizer
@@ -236,14 +236,14 @@ def main():
         if cfg.LOG:
             logger.info('====== training on lambda, lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
-        # train_dcp(cfg, train_loader, model, criterion, optimizer, epoch,
-        #   final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
+        train_dcp(cfg, train_loader, model, criterion, optimizer, epoch,
+          final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
 
         lr_scheduler.step()
 
         if epoch % cfg.EPOCH_EVAL_FREQ == 0:
-            perf_indicator = validate_dcp(cfg, valid_loader, valid_dataset, model, criterion,
-                     final_output_dir, tb_log_dir, writer_dict, epoch=epoch, print_prefix='lambda', lambda_vals=[0, 1], log=logger)
+            perf_indicator = validate_dcp_gcn(cfg, valid_loader, valid_dataset, model,
+                                              final_output_dir, writer_dict, epoch=epoch, lambda_vals=[0, 1], log=logger)
 
             if perf_indicator >= best_perf:
                 best_perf = perf_indicator

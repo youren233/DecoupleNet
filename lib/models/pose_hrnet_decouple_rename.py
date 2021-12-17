@@ -140,7 +140,7 @@ class HighResolutionModule(nn.Module):
                          stride=1):
         downsample = None
         if stride != 1 or \
-                self.num_inchannels[branch_index] != num_channels[branch_index] * block.expansion:
+           self.num_inchannels[branch_index] != num_channels[branch_index] * block.expansion:
             downsample = nn.Sequential(
                 nn.Conv2d(
                     self.num_inchannels[branch_index],
@@ -478,7 +478,7 @@ class PoseHighResolutionNet(nn.Module):
             need_init_state_dict = {}
             for name, m in pretrained_state_dict.items():
                 if name.split('.')[0] in self.pretrained_layers \
-                        or self.pretrained_layers[0] is '*':
+                   or self.pretrained_layers[0] is '*':
                     need_init_state_dict[name] = m
             self.load_state_dict(need_init_state_dict, strict=False)
         elif pretrained:
@@ -527,11 +527,11 @@ class MaskRCNNConvUpsampleHead(nn.Module):
                 norm=get_norm(self.norm, conv_dims),
                 activation=F.relu,
             )
-            self.add_module("mask_fcn{}".format(k + 1), conv)
+            self.add_module("oc_fcn{}".format(k + 1), conv)
             self.conv_norm_relus.append(conv)
         self.conv_norm_relus = nn.ModuleList(self.conv_norm_relus)
 
-        self.boundary_conv_norm_relus = []
+        self.conv_layers_up = []
         for k in range(num_conv):
             conv = Conv2d(
                 head_channels if k == 0 else conv_dims,
@@ -543,26 +543,26 @@ class MaskRCNNConvUpsampleHead(nn.Module):
                 norm=get_norm(self.norm, conv_dims),
                 activation=F.relu,
             )
-            self.add_module("boundary_fcn{}".format(k + 1), conv)
-            self.boundary_conv_norm_relus.append(conv)
-        self.boundary_conv_norm_relus = nn.ModuleList(self.boundary_conv_norm_relus)
+            self.add_module("oced_fcn{}".format(k + 1), conv)
+            self.conv_layers_up.append(conv)
+        self.conv_layers_up = nn.ModuleList(self.conv_layers_up)
 
-        self.query_transform_bound_bo = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False) # Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.key_transform_bound_bo = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.value_transform_bound_bo = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.output_transform_bound_bo = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.query_transform_up = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False) # Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.key_transform_up = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.value_transform_up = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.output_transform_up = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
 
-        self.query_transform_bound = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.key_transform_bound = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.value_transform_bound = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.output_transform_bound = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.query_transform_down = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.key_transform_down = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.value_transform_down = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.output_transform_down = nn.Conv2d(head_channels, head_channels, kernel_size=1, stride=1, padding=0, bias=False)
 
 
         self.scale = 1.0 / (head_channels ** 0.5)
-        self.blocker_bound_bo = nn.BatchNorm2d(head_channels, eps=1e-04) # should be zero initialized
-        self.blocker_bound = nn.BatchNorm2d(head_channels, eps=1e-04) # should be zero initialized
+        self.norm_up = nn.BatchNorm2d(head_channels, eps=1e-04) # should be zero initialized
+        self.norm_down = nn.BatchNorm2d(head_channels, eps=1e-04) # should be zero initialized
 
-        for layer in list(self.conv_norm_relus) + list(self.boundary_conv_norm_relus) + [self.query_transform_bound_bo, self.key_transform_bound_bo, self.value_transform_bound_bo, self.output_transform_bound_bo, self.query_transform_bound, self.key_transform_bound, self.value_transform_bound, self.output_transform_bound]:
+        for layer in list(self.conv_norm_relus) + list(self.conv_layers_up) + [self.query_transform_up, self.key_transform_up, self.value_transform_up, self.output_transform_up, self.query_transform_down, self.key_transform_down, self.value_transform_down, self.output_transform_down]:
             weight_init.c2_msra_fill(layer)
 
         # 初始化？
@@ -590,7 +590,7 @@ class MaskRCNNConvUpsampleHead(nn.Module):
         B, C, H, W = x.size() # B, C, 64, 48
         x_ori = x.clone()
 
-        for cnt, layer in enumerate(self.boundary_conv_norm_relus):
+        for cnt, layer in enumerate(self.conv_layers_up):
             x = layer(x) # [16, 256, 64, 48]s
 
             if cnt == 1 and len(x) != 0:
@@ -598,25 +598,25 @@ class MaskRCNNConvUpsampleHead(nn.Module):
 
                 # x_input = AddCoords()(x)
                 # x_query | query_transform_bound_bo: Conv2d(256, 256, kernel_size=(1, 1), stride=(1, 1))
-                x_query_bound_bo = self.query_transform_bound_bo(x).view(B, C, -1) # B, 256, 3072
-                x_query_bound_bo = torch.transpose(x_query_bound_bo, 1, 2) # B, 3072, 256 (B,HW,C)
+                x_query_up = self.query_transform_up(x).view(B, C, -1) # B, 256, 3072
+                x_query_up = torch.transpose(x_query_up, 1, 2) # B, 3072, 256 (B,HW,C)
                 # x_key: B,C,HW | key_transform_bound_bo: Conv2d(256, 256, kernel_size=(1, 1), stride=(1, 1), bias=False)
-                x_key_bound_bo = self.key_transform_bound_bo(x).view(B, C, -1) # B, 256, 3072
+                x_key_up = self.key_transform_up(x).view(B, C, -1) # B, 256, 3072
                 # x_value: B,HW,C
-                x_value_bound_bo = self.value_transform_bound_bo(x).view(B, C, -1)  # B, 256, 3072 (B,C,HW)
-                x_value_bound_bo = torch.transpose(x_value_bound_bo, 1, 2)# B, 3072, 256
+                x_value_up = self.value_transform_up(x).view(B, C, -1)  # B, 256, 3072 (B,C,HW)
+                x_value_up = torch.transpose(x_value_up, 1, 2)# B, 3072, 256
                 # W = Q^T K: B,HW,HW(可学习的参数?)
-                x_w_bound_bo = torch.matmul(x_query_bound_bo, x_key_bound_bo) * self.scale  # B, 3072, 3072
-                x_w_bound_bo = F.softmax(x_w_bound_bo, dim=-1)
+                x_w_up = torch.matmul(x_query_up, x_key_up) * self.scale  # B, 3072, 3072
+                x_w_up = F.softmax(x_w_up, dim=-1)
                 # x_relation = WV: B,HW,C
-                x_relation_bound_bo = torch.matmul(x_w_bound_bo, x_value_bound_bo)  # B, 3072, 256
-                x_relation_bound_bo = torch.transpose(x_relation_bound_bo, 1, 2)    # B, 256, 3072 (B,C,HW)
-                x_relation_bound_bo = x_relation_bound_bo.view(B,C,H,W) # 16, 256, 64, 48 (B,C,H,W)
+                x_relation_up = torch.matmul(x_w_up, x_value_up)  # B, 3072, 256
+                x_relation_up = torch.transpose(x_relation_up, 1, 2)    # B, 256, 3072 (B,C,HW)
+                x_relation_up = x_relation_up.view(B,C,H,W) # 16, 256, 64, 48 (B,C,H,W)
 
-                x_relation_bound_bo = self.output_transform_bound_bo(x_relation_bound_bo)   # 16, 256, 64, 48
-                x_relation_bound_bo = self.blocker_bound_bo(x_relation_bound_bo)    # 16, 256, 64, 48
+                x_relation_up = self.output_transform_up(x_relation_up)   # 16, 256, 64, 48
+                x_relation_up = self.norm_up(x_relation_up)    # 16, 256, 64, 48
 
-                x = x + x_relation_bound_bo
+                x = x + x_relation_up
 
         occ_feat = x.clone()  # [B, 256, 64, 48]
         # occ pose head
@@ -630,12 +630,12 @@ class MaskRCNNConvUpsampleHead(nn.Module):
                 # x: B,C,H,W
                 #x_input = AddCoords()(x)
                 # x_query: B,C,HW
-                x_query_bound = self.query_transform_bound(x).view(B, C, -1)
+                x_query_bound = self.query_transform_down(x).view(B, C, -1)
                 x_query_bound = torch.transpose(x_query_bound, 1, 2) # B,HW,C
                 # x_key: B,C,HW
-                x_key_bound = self.key_transform_bound(x).view(B, C, -1)
+                x_key_bound = self.key_transform_down(x).view(B, C, -1)
                 # x_value: B,C,HW
-                x_value_bound = self.value_transform_bound(x).view(B, C, -1)
+                x_value_bound = self.value_transform_down(x).view(B, C, -1)
                 x_value_bound = torch.transpose(x_value_bound, 1, 2) # B,HW,C
                 # W = Q^T K: B,HW,HW
                 x_w_bound = torch.matmul(x_query_bound, x_key_bound) * self.scale
@@ -645,8 +645,8 @@ class MaskRCNNConvUpsampleHead(nn.Module):
                 x_relation_bound = torch.transpose(x_relation_bound, 1, 2) # B,C,HW
                 x_relation_bound = x_relation_bound.view(B,C,H,W) # B,C,H,W
 
-                x_relation_bound = self.output_transform_bound(x_relation_bound)
-                x_relation_bound = self.blocker_bound(x_relation_bound)
+                x_relation_bound = self.output_transform_down(x_relation_bound)
+                x_relation_bound = self.norm_down(x_relation_bound)
 
                 x = x + x_relation_bound
 

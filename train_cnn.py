@@ -83,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_Dcp')
+                        default='Train_Dcp_CNN')
 
 
     args = parser.parse_args()
@@ -210,7 +210,7 @@ def main():
     checkpoint_file = os.path.join(
         final_output_dir, 'checkpoint_resume.pth'
     )
-    # # # # ----------------------------------------------
+    # # # # ------------------------------------------------
     logger.info('=> updated lr schedule is {}'.format(cfg.TRAIN.LR_STEP))
     # 断点自动恢复训练
     if cfg.AUTO_RESUME and os.path.exists(checkpoint_file):
@@ -241,7 +241,7 @@ def main():
 
         lr_scheduler.step()
 
-        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > 205:
+        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > (cfg.TRAIN.END_EPOCH - 5):
             perf_indicator = validate_dcp_cnn(cfg, valid_loader, valid_dataset, model,
                      final_output_dir, writer_dict, epoch=epoch, lambda_vals=[0, 1], log=logger)
 
@@ -251,7 +251,7 @@ def main():
             else:
                 is_best = False
 
-        if cfg.LOG and (epoch % save_freq == 0 or epoch > 205):
+        if cfg.LOG and (epoch % save_freq == 0 or epoch > (cfg.TRAIN.END_EPOCH - 5)):
             logger.info('=> model AP: {} | saving checkpoint to {}'.format(perf_indicator, final_output_dir))
             save_checkpoint({
                 'epoch': epoch + 1,
