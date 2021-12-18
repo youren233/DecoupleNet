@@ -172,8 +172,10 @@ def update_config(cfg, args):
     cfg.merge_from_file(args.cfg)
     cfg.merge_from_list(args.opts)
 
-    cfg.RANK = args.local_rank
-    cfg.EXP_ID = args.exp_id
+    if args.local_rank:
+        cfg.RANK = args.local_rank
+    if args.exp_id:
+        cfg.EXP_ID = args.exp_id
     cfg.LOG = cfg.RANK == 0
     if args.modelDir:
         cfg.OUTPUT_DIR = args.modelDir
@@ -200,11 +202,6 @@ def update_config(cfg, args):
     cfg.TEST.COCO_BBOX_FILE = os.path.join(cfg.DATASET.ROOT, cfg.TEST.COCO_BBOX_FILE)
 
     cfg.MODEL.PRETRAINED = cfg.MODEL.PRETRAINED[env]
-
-    if cfg.TEST.MODEL_FILE:
-        cfg.TEST.MODEL_FILE = os.path.join(
-            cfg.DATA_DIR, cfg.TEST.MODEL_FILE
-        )
 
     cfg.freeze()
 

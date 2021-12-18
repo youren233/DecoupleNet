@@ -517,27 +517,6 @@ class CoarseRefineDecouple(nn.Module):
             stride=1,
             padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
         )
-
-
-        # refine branch
-        self.refine_feature_fuse_up = self._make_fuse_layer(refine_num_blocks, hidden_channels, hidden_channels)
-        self.refine_predictor_up = nn.Conv2d(
-            in_channels=hidden_channels,
-            out_channels=num_joints,
-            kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
-            stride=1,
-            padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
-        )
-
-        self.transition_refine = nn.Sequential(
-            nn.Conv2d(
-                in_channels + num_joints * 2,
-                hidden_channels,
-                1, 1, bias=False
-            ),
-            nn.BatchNorm2d(hidden_channels),
-            nn.ReLU(inplace=True)
-        )
         # ---------------------- down -------------------
         # coarse branch
         self.coarse_extract_down = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
@@ -549,20 +528,7 @@ class CoarseRefineDecouple(nn.Module):
             padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
         )
 
-
-        # refine branch
-        self.refine_feature_fuse_down = self._make_fuse_layer(refine_num_blocks, hidden_channels, hidden_channels)
-        self.refine_predictor_down = nn.Conv2d(
-            in_channels=hidden_channels,
-            out_channels=num_joints,
-            kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
-            stride=1,
-            padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
-        )
-
     def forward(self, x):
-        x_residual = x.clone()
-
         # transition
         x = self.transition_coarse(x)
         # --------------------------- coarse ------------------------
@@ -574,28 +540,11 @@ class CoarseRefineDecouple(nn.Module):
         x_down = self.coarse_extract_down(x_down)
         coarse_out_down = self.coarse_predictor_down(x_down)
 
-
-
-        # transition
-        x = torch.cat([coarse_out_up, coarse_out_down, x_residual], 1)
-        x = self.transition_refine(x)
-
-        x_down = x.clone()
-        # --------------------------- refine ------------------------
-        # up
-        x = self.refine_feature_fuse_up(x)
-        refine_out_up = self.refine_predictor_up(x)
-        # down
-        x_down = self.refine_feature_fuse_down(x_down)
-        refine_out_down = self.refine_predictor_down(x_down)
-
         if not self.is_train:
-            return refine_out_up
+            return coarse_out_up
         return {
-            'cu': coarse_out_up,
-            'cd':coarse_out_down,
-            'ru': refine_out_up,
-            'rd': refine_out_down
+            'up': coarse_out_up,
+            'down':coarse_out_down,
         }
 
     def _make_extract_layer(self, num_basicBlock, in_channels, out_channels):
@@ -625,7 +574,7 @@ class CoarseRefineDecouple(nn.Module):
 def get_pose_net(cfg, is_train, **kwargs):
     model = PoseHighResolutionNet(cfg, is_train=is_train, **kwargs)
 
-    print('==============> Got pose_hrnet_decouple_cnn')
+    print('==============> Got pose_hrnet_decouple_cnn-naive')
     if is_train and cfg['MODEL']['INIT_WEIGHTS']:
         model.init_weights(cfg['MODEL']['PRETRAINED'])
 

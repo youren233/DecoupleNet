@@ -29,3 +29,4 @@ import lib.models.pose_hrnet_ss_lambda
 import lib.models.pose_hrnet_decouple
 import lib.models.pose_hrnet_IgnSE12_lambda
 import lib.models.pose_hrnet_decouple_cnn
+import lib.models.pose_hrnet_decouple_naive

@@ -273,7 +273,7 @@ blocks_dict = {
 
 class PoseHighResolutionNet(nn.Module):
 
-    def __init__(self, cfg, **kwargs):
+    def __init__(self, cfg, is_train=True, **kwargs):
         self.inplanes = 64
         extra = cfg['MODEL']['EXTRA']
         super(PoseHighResolutionNet, self).__init__()
@@ -320,7 +320,7 @@ class PoseHighResolutionNet(nn.Module):
         self.stage4, pre_stage_channels = self._make_stage(
             self.stage4_cfg, num_channels, multi_scale_output=False)
 
-        self.decouple_head = MaskRCNNConvUpsampleHead(cfg, in_channels=pre_stage_channels[0])
+        self.decouple_head = MaskRCNNConvUpsampleHead(cfg, is_train=is_train, in_channels=pre_stage_channels[0])
 
         self.pretrained_layers = extra['PRETRAINED_LAYERS']
 
@@ -449,9 +449,9 @@ class PoseHighResolutionNet(nn.Module):
                 x_list.append(y_list[i])
         y_list = self.stage4(x_list)
 
-        occ_pose, occee_pose = self.decouple_head(y_list[0])
+        poses = self.decouple_head(y_list[0])
 
-        return occ_pose, occee_pose
+        return poses
 
     def init_weights(self, pretrained=''):
         logger.info('=> init weights from normal distribution')
@@ -499,7 +499,7 @@ class MaskRCNNConvUpsampleHead(nn.Module):
     A mask head with several conv layers, plus an upsample layer (with `ConvTranspose2d`).
     """
 
-    def __init__(self, cfg, in_channels):
+    def __init__(self, cfg, in_channels, is_train=False):
         """
         The following attributes are parsed from config:
             num_conv: the number of conv layers
@@ -514,7 +514,7 @@ class MaskRCNNConvUpsampleHead(nn.Module):
         num_conv          = cfg.MODEL.DECOUPLE['NUM_CONV']
         head_channels    = cfg.MODEL.DECOUPLE['HEAD_CHANNELS']
         # fmt: on
-
+        self.is_train = is_train
         self.conv_norm_relus = []
 
         for k in range(num_conv):
@@ -621,6 +621,9 @@ class MaskRCNNConvUpsampleHead(nn.Module):
         # occ pose head
         pose_occ = self.pose_occluder(occ_feat)
 
+        if not self.is_train:
+            return pose_occ
+
         # 下路分支
         x = x_ori + x
         for cnt, layer in enumerate(self.conv_norm_relus):
@@ -656,7 +659,7 @@ class MaskRCNNConvUpsampleHead(nn.Module):
         return pose_occ, pose_occee
 
 def get_pose_net(cfg, is_train, **kwargs):
-    model = PoseHighResolutionNet(cfg, **kwargs)
+    model = PoseHighResolutionNet(cfg, is_train=is_train, **kwargs)
 
     print('==============> Got pose_hrnet_decouple')
     if is_train and cfg['MODEL']['INIT_WEIGHTS']:

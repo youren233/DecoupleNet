@@ -252,7 +252,6 @@ def create_logger(cfg, cfg_name, phase='train'):
     console = logging.StreamHandler()
     logging.getLogger('').addHandler(console)
 
-
     return logger, str(final_output_dir), str(log_dir)
 
 
@@ -426,7 +425,7 @@ def get_model_summary(model, *input_tensors, item_length=26, verbose=False):
 
     return details
 
-def get_dcp_model_summary(model, *input_tensors, item_length=26, verbose=False):
+def get_dcp_gcn_model_summary(model, *input_tensors, item_length=26, verbose=False):
     """
     :param model:
     :param input_tensors:

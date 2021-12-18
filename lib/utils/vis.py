@@ -15,22 +15,25 @@ import torch
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import cv2
+import os
 
 from lib.core.inference import get_max_preds
 from lib.utils.utils import batch_unnormalize_image
 
 import numpy as np
 from matplotlib import pyplot as plt
+
+skelenton = [[0, 2], [1, 3], [2, 4], [3, 5], [6, 8], [8, 10], [7, 9], [9, 11], [12, 13], [0, 13], [1, 13],
+             [6,13],[7, 13]]
+
 def vis_tensor_img(tensor):
     img = np.transpose(tensor.cpu().numpy(), (1, 2, 0))
     plt.imshow(img)
     plt.show()
 
-def vis_keypoint(kpts, img_name, color=(255,128,128), thr=0.5):
-    img = cv2.imread(img_name)
-    # kpts = np.array(kpts).reshape(-1,3)
-    skelenton = [[0, 2], [1, 3], [2, 4], [3, 5], [6, 8], [8, 10], [7, 9], [9, 11], [12, 13], [0, 13], [1, 13],
-                 [6,13],[7, 13]]
+def vis_keypointOnTensorImg(kpts, tensor, color=(255,128,128), thr=0.5):
+    point_color = (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255))
+    img = np.transpose(tensor.cpu().numpy(), (1, 2, 0))
     points_num = [num for num in range(14)]
     for sk in skelenton:
         pos1 = (int(kpts[sk[0], 0]), int(kpts[sk[0], 1]))
@@ -40,7 +43,42 @@ def vis_keypoint(kpts, img_name, color=(255,128,128), thr=0.5):
     for points in points_num:
         pos = (int(kpts[points,0]),int(kpts[points,1]))
         if pos[0] > 0 and pos[1] > 0:
-            cv2.circle(img, pos,10,(0,255,255),-1) #为肢体点画红色实心圆 return img
+            cv2.circle(img, pos,10,point_color,-1)
+
+    plt.imshow(img)
+    plt.show()
+
+def vis_keypointOnImg(kpts, image, color=(255,128,128), thr=0.5):
+    point_color = (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255))
+    img = image
+    points_num = [num for num in range(14)]
+    for sk in skelenton:
+        pos1 = (int(kpts[sk[0], 0]), int(kpts[sk[0], 1]))
+        pos2 = (int(kpts[sk[1], 0]), int(kpts[sk[1] , 1]))
+        if pos1[0] > 0 and pos1[1] > 0 and pos2[0] > 0 and pos2[1] > 0:
+            cv2.line(img, pos1, pos2, color, 2, 8)
+    for points in points_num:
+        pos = (int(kpts[points,0]),int(kpts[points,1]))
+        if pos[0] > 0 and pos[1] > 0:
+            cv2.circle(img, pos,10,point_color,-1)
+
+    plt.imshow(img)
+    plt.show()
+
+def vis_keypoint(kpts, img_name, color=(255,128,128), thr=0.5):
+    point_color = (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255))
+    img = cv2.imread(img_name)
+    # kpts = np.array(kpts).reshape(-1,3)
+    points_num = [num for num in range(14)]
+    for sk in skelenton:
+        pos1 = (int(kpts[sk[0], 0]), int(kpts[sk[0], 1]))
+        pos2 = (int(kpts[sk[1], 0]), int(kpts[sk[1] , 1]))
+        if pos1[0] > 0 and pos1[1] > 0 and pos2[0] > 0 and pos2[1] > 0:
+            cv2.line(img, pos1, pos2, color, 2, 8)
+    for points in points_num:
+        pos = (int(kpts[points,0]),int(kpts[points,1]))
+        if pos[0] > 0 and pos[1] > 0:
+            cv2.circle(img, pos,10,point_color,-1)
 
     plt.imshow(img)
     plt.show()
@@ -115,22 +153,31 @@ def save_batch_image_with_joints(batch_image, batch_joints, batch_joints_vis,
         batch_joints = batch_joints.cpu().numpy()
         batch_joints_vis = batch_joints_vis.cpu().numpy()
 
-    batch_joints = batch_joints.copy() 
+    batch_joints = batch_joints.copy()
 
     for y in range(ymaps):
         for x in range(xmaps):
             if k >= nmaps:
                 break
-            
+
             joints = batch_joints[k]
-            joints_vis = batch_joints_vis[k]            
+            joints_vis = batch_joints_vis[k]
+            color = (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255))
 
             for joint, joint_vis in zip(joints, joints_vis):
                 joint[0] = x * width + padding + joint[0]
                 joint[1] = y * height + padding + joint[1]
 
                 if joint_vis[0]:
-                    cv2.circle(ndarr, (int(joint[0]), int(joint[1])), 2, [255, 0, 0], 2)
+                    cv2.circle(ndarr, (int(joint[0]), int(joint[1])), 4, color, 2)
+            for sk in skelenton:
+                pos1 = (int(joints[sk[0], 0]), int(joints[sk[0], 1]))
+                pos2 = (int(joints[sk[1], 0]), int(joints[sk[1] , 1]))
+
+                vis1 = joints_vis[sk[0]][0]
+                vis2 = joints_vis[sk[1]][0]
+                if vis1 > 0 and vis2 > 0:
+                    cv2.line(ndarr, pos1, pos2, color, 2, 8)
             k = k + 1
     cv2.imwrite(file_name, ndarr)
 
@@ -284,33 +331,38 @@ def save_image(batch_image, file_name, nrow=8, padding=2):
     return
 
 def save_debug_images(config, input, meta, target, joints_pred, output,
-                      prefix, suffix=''):
+                      output_dir, suffix=''):
     if not config.DEBUG.DEBUG:
         return
 
     if config.DEBUG.SAVE_BATCH_IMAGES_GT:
+        file_name = os.path.join(output_dir, 'gt_{}.jpg'.format(suffix))
         save_batch_image_with_joints(
             input, meta['joints'], meta['joints_vis'],
-            '{}_gt_{}.jpg'.format(prefix, suffix)
+            file_name
         )
     if config.DEBUG.SAVE_BATCH_IMAGES_PRED:
+        file_name = os.path.join(output_dir, 'pred_{}.jpg'.format(suffix))
         if 'pred_joints_vis' in meta.keys():
             save_batch_image_with_joints(
                 input, joints_pred, meta['pred_joints_vis'],
-                '{}_pred_{}.jpg'.format(prefix, suffix)
+                file_name
             )
-        else:            
+        else:
+            file_name = os.path.join(output_dir, 'pred_{}.jpg'.format(suffix))
             save_batch_image_with_joints(
                 input, joints_pred, meta['joints_vis'],
-                '{}_pred_{}.jpg'.format(prefix, suffix)
+                file_name
             )
     if config.DEBUG.SAVE_HEATMAPS_GT:
+        file_name = os.path.join(output_dir, 'gt_hm_{}.jpg'.format(suffix))
         save_batch_heatmaps(
-            input, target, '{}_hm_gt_{}.jpg'.format(prefix, suffix)
+            input, target, file_name
         )
     if config.DEBUG.SAVE_HEATMAPS_PRED:
+        file_name = os.path.join(output_dir, 'pred_hm_{}.jpg'.format(suffix))
         save_batch_heatmaps(
-            input, output, '{}_hm_pred_{}.jpg'.format(prefix, suffix)
+            input, output, file_name
         )
 
     # # # ----------------------------------------------------

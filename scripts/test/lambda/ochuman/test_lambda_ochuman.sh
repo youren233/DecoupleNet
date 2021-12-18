@@ -3,7 +3,7 @@ cd ../../../..
 
 # # # # -----------------------------------------------------------
 # # # # # # # -----------------------------------------------------------
-# CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_decouple.py \
+# CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_dcp_gcn.py \
 #     --cfg experiments/coco/hrnet/w48_384x288_adam_lr1e-3.yaml \
 #     GPUS '(0,1,2)' \
 #     OUTPUT_DIR 'Outputs/outputs/ochuman/lambda/lambda_real/' \
@@ -22,7 +22,7 @@ cd ../../../..
 #     TEST.COCO_BBOX_FILE '/home/ANT.AMAZON.COM/khiXYZ/Desktop/datasets/coco/person_detection_results/COCO_val2017_detections_AP_H_56_person.json'
 
 
-# CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_decouple.py \
+# CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_dcp_gcn.py \
 #     --cfg experiments/coco/hrnet/w48_384x288_adam_lr1e-3.yaml \
 #     GPUS '(0,1,2)' \
 #     OUTPUT_DIR 'Outputs/outputs/paper/ochuman/lambda/' \
@@ -41,7 +41,7 @@ cd ../../../..
 #     TEST.OKS_THRE 0.7 \
 
 
-# CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_decouple.py \
+# CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_dcp_gcn.py \
 #     --cfg experiments/coco/hrnet/w48_384x288_adam_lr1e-3.yaml \
 #     GPUS '(0,1,2)' \
 #     OUTPUT_DIR 'Outputs/outputs/paper/ochuman/lambda/' \
@@ -80,7 +80,7 @@ CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_lambda.py \
 
 
 
-# CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_decouple.py \
+# CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_dcp_gcn.py \
 #     --cfg experiments/coco/resnet/res50_384x288_d256x3_adam_lr1e-3.yaml \
 #     GPUS '(0,1,2)' \
 #     OUTPUT_DIR 'Outputs/outputs/ochuman/lambda/lambda_real/' \
@@ -98,7 +98,7 @@ CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_lambda.py \
 #     PRINT_FREQ 100 \
 #     TEST.COCO_BBOX_FILE '/home/ANT.AMAZON.COM/khiXYZ/Desktop/datasets/coco/person_detection_results/COCO_val2017_detections_AP_H_56_person.json'
 
-# CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_decouple.py \
+# CUDA_VISIBLE_DEVICES=0,1,2 python tools/lambda/test_dcp_gcn.py \
 #     --cfg experiments/coco/hrnet/w32_384x288_adam_lr1e-3.yaml \
 #     GPUS '(0,1,2)' \
 #     OUTPUT_DIR 'Outputs/outputs/ochuman/lambda/lambda_real/' \

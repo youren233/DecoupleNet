@@ -35,15 +35,15 @@ import _init_paths
 from lib.config import cfg
 from lib.config import update_config
 from lib.core.loss import JointsMSELoss
-from lib.core.train import train_dcp
-from lib.core.validate import validate_dcp_gcn
+from lib.core.train import train_dcp_naive
+from lib.core.validate import validate_dcp_naive
 
 import lib.dataset
 import lib.models
 from lib.utils.utils import get_optimizer
 from lib.utils.utils import save_checkpoint
 from lib.utils.utils import create_logger
-from lib.utils.utils import get_dcp_gcn_model_summary
+from lib.utils.utils import get_dcp_cnn_model_summary
 from lib.utils.utils import set_seed
 
 
@@ -53,7 +53,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-decouple-gcn.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-decouple-naive.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -83,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_Dcp')
+                        default='Train_Dcp_Naive')
 
 
     args = parser.parse_args()
@@ -94,6 +94,11 @@ def parse_args():
 def main():
     args = parse_args()
     update_config(cfg, args)
+
+    # close debug
+    cfg.defrost()
+    cfg.DEBUG.DEBUG = False
+    cfg.freeze()
 
     logger, final_output_dir, tb_log_dir = create_logger(
         cfg, args.cfg, 'train')
@@ -139,7 +144,7 @@ def main():
     ### throws an assertion error on cube3, works well on bheem
     # writer_dict['writer'].add_graph(model, (dump_input, ))
 
-    logger.info(get_dcp_gcn_model_summary(model, dump_input))
+    logger.info(get_dcp_cnn_model_summary(model, dump_input))
 
     model = model.cuda()
 
@@ -203,13 +208,14 @@ def main():
     best_perf = 0.0
     last_epoch = -1
     perf_indicator = 0.0
+    save_freq = cfg.EPOCH_EVAL_FREQ // 5 + 1
     is_best = True
     optimizer = get_optimizer(cfg, model)
     begin_epoch = cfg.TRAIN.BEGIN_EPOCH
     checkpoint_file = os.path.join(
         final_output_dir, 'checkpoint_resume.pth'
     )
-    # # # # ----------------------------------------------
+    # # # # ------------------------------------------------
     logger.info('=> updated lr schedule is {}'.format(cfg.TRAIN.LR_STEP))
     # 断点自动恢复训练
     if cfg.AUTO_RESUME and os.path.exists(checkpoint_file):
@@ -236,14 +242,13 @@ def main():
         if cfg.LOG:
             logger.info('====== training on lambda, lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
-        train_dcp(cfg, train_loader, model, criterion, optimizer, epoch,
-          final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
+        train_dcp_naive(cfg, train_loader, model, criterion, optimizer, writer_dict)
 
         lr_scheduler.step()
 
-        if epoch % cfg.EPOCH_EVAL_FREQ == 0:
-            perf_indicator = validate_dcp_gcn(cfg, valid_loader, valid_dataset, model,
-                                              final_output_dir, writer_dict, epoch=epoch, lambda_vals=[0, 1], log=logger)
+        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > (cfg.TRAIN.END_EPOCH - 5):
+            perf_indicator = validate_dcp_naive(cfg, valid_loader, valid_dataset, model,
+                     final_output_dir, writer_dict, epoch=epoch, lambda_vals=[0, 1], log=logger)
 
             if perf_indicator >= best_perf:
                 best_perf = perf_indicator
@@ -251,7 +256,7 @@ def main():
             else:
                 is_best = False
 
-        if cfg.LOG:
+        if cfg.LOG and (epoch % save_freq == 0 or epoch > (cfg.TRAIN.END_EPOCH - 5)):
             logger.info('=> model AP: {} | saving checkpoint to {}'.format(perf_indicator, final_output_dir))
             save_checkpoint({
                 'epoch': epoch + 1,
