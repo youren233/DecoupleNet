@@ -589,7 +589,7 @@ def validate_dcp_cnn(config, val_loader, val_dataset, model, output_dir, writer_
                     save_size = min(8, B)
                     meta['pred_joints_vis'] = torch.ones_like(meta['joints_vis'])
 
-                    suffix = str(epoch) + str(i) + ['ru', 'rd'][m]
+                    suffix = str(epoch) + '_' + str(i) + ['_ru', '_rd'][m]
 
                     save_debug_images(config, input[:save_size, [2,1,0], :, :], meta, target[:save_size], (pred*4)[:save_size], output[:save_size],
                                       output_dir, suffix)

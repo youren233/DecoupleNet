@@ -83,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_Dcp_Naive')
+                        default='Train_Dcp_Naive-4')
 
 
     args = parser.parse_args()
@@ -240,7 +240,7 @@ def main():
 
         # # # train for one epoch
         if cfg.LOG:
-            logger.info('====== training on lambda, lr={}, {} th epoch ======'
+            logger.info('====== training: lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
         train_dcp_naive(cfg, train_loader, model, criterion, optimizer, writer_dict)
 
@@ -261,7 +261,7 @@ def main():
             save_checkpoint({
                 'epoch': epoch + 1,
                 'model': cfg.MODEL.NAME,
-                'state_dict': model.state_dict(),
+                'state_dict': model.module.state_dict(),
                 'perf': perf_indicator,
                 'optimizer': optimizer.state_dict(),
                 }, is_best, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))

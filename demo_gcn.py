@@ -251,13 +251,13 @@ def main():
         model_object = torch.load(model_file, map_location='cpu')
         if 'latest_state_dict' in model_object.keys():
             print('=> loading from latest_state_dict at {}'.format(model_file))
-            pose_model.load_state_dict(model_object['latest_state_dict'], strict=False)
+            pose_model.load_state_dict(model_object['latest_state_dict'])
         elif 'state_dict' in model_object.keys():
             print('=> loading from latest_state_dict at {}'.format(model_file))
-            pose_model.load_state_dict(model_object['state_dict'], strict=False)
+            pose_model.load_state_dict(model_object['state_dict'])
         else:
             print('=> no latest_state_dict found')
-            pose_model.load_state_dict(model_object, strict=False)
+            pose_model.load_state_dict(model_object)
     else:
         model_state_file = os.path.join(
             final_output_dir, 'final_state.pth'

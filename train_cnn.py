@@ -83,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_Dcp_CNN')
+                        default='Train_Dcp')
 
 
     args = parser.parse_args()
@@ -261,7 +261,7 @@ def main():
             save_checkpoint({
                 'epoch': epoch + 1,
                 'model': cfg.MODEL.NAME,
-                'state_dict': model.state_dict(),
+                'state_dict': model.module.state_dict(),
                 'perf': perf_indicator,
                 'optimizer': optimizer.state_dict(),
                 }, is_best, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))

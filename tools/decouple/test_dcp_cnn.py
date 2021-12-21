@@ -95,8 +95,11 @@ def main():
     torch.cuda.set_device(device)
 
     model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(
-        cfg, is_train=False
+        cfg, is_train=True
     )
+
+    dump_input = torch.rand((1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
+    logger.info(get_dcp_cnn_model_summary(model, dump_input))
 
     model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
     # model = torch.nn.DataParallel(model).cuda()
@@ -118,13 +121,13 @@ def main():
         model_object = torch.load(model_file, map_location='cpu')
         if 'latest_state_dict' in model_object.keys():
             logger.info('=> loading from latest_state_dict at {}'.format(model_file))
-            model.load_state_dict(model_object['latest_state_dict'], strict=False)
+            model.load_state_dict(model_object['latest_state_dict'])
         elif 'state_dict' in model_object.keys():
             logger.info('=> loading from latest_state_dict at {}'.format(model_file))
-            model.load_state_dict(model_object['state_dict'], strict=False)
+            model.load_state_dict(model_object['state_dict'])
         else:
             logger.info('=> no latest_state_dict found')
-            model.load_state_dict(model_object, strict=False)
+            model.load_state_dict(model_object)
     else:
         model_state_file = os.path.join(
             final_output_dir, 'final_state.pth'

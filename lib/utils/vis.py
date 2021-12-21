@@ -169,7 +169,7 @@ def save_batch_image_with_joints(batch_image, batch_joints, batch_joints_vis,
                 joint[1] = y * height + padding + joint[1]
 
                 if joint_vis[0]:
-                    cv2.circle(ndarr, (int(joint[0]), int(joint[1])), 4, color, 2)
+                    cv2.circle(ndarr, (int(joint[0]), int(joint[1])), 4, color, -1)
             for sk in skelenton:
                 pos1 = (int(joints[sk[0], 0]), int(joints[sk[0], 1]))
                 pos2 = (int(joints[sk[1], 0]), int(joints[sk[1] , 1]))
