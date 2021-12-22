@@ -83,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_Dcp_Naive-4')
+                        default='Train_Dcp_Naive-2')
 
 
     args = parser.parse_args()

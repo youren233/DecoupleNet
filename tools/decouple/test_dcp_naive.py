@@ -70,7 +70,7 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Test_Dcp_naive8')
+                        default='Test_Dcp')
 
     args = parser.parse_args()
     return args
@@ -101,7 +101,7 @@ def main():
     dump_input = torch.rand((1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
     logger.info(get_dcp_cnn_model_summary(model, dump_input))
 
-    model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
+    # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
     # model = torch.nn.DataParallel(model).cuda()
     model = model.cuda()
 
@@ -111,7 +111,7 @@ def main():
         'valid_global_steps': 0,
     }
 
-    dump_input = torch.rand((1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
+    dump_input = torch.rand((1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0])).cuda()
 
     logger.info(get_dcp_cnn_model_summary(model, dump_input))
 
