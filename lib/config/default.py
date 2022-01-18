@@ -16,9 +16,9 @@ from yacs.config import CfgNode as CN
 
 _C = CN()
 
-_C.OUTPUT_DIR = ['output', 'output', '../model']
-_C.LOG_DIR = ['', '', '../log']
-_C.DATA_DIR = ['', '', '../data']
+_C.OUTPUT_DIR = ['output', 'output', '../model', 'output']
+_C.LOG_DIR = ['', '', '../log', '']
+_C.DATA_DIR = ['', '', '../data', '']
 _C.DESCRIPTION = ''
 _C.ENV = 0
 _C.EXP_ID = ''
@@ -50,7 +50,7 @@ _C.MODEL.DECOUPLE = CN(new_allowed=True)
 # _C.MODEL.DECOUPLE.OCCEE_WEIGHT = 1
 
 _C.MODEL.INIT_WEIGHTS = True
-_C.MODEL.PRETRAINED = ['model/hrnet_w32-36af842e.pth', 'model/hrnet_w32-36af842e.pth', '../model/hrnet_w32-36af842e.pth']
+_C.MODEL.PRETRAINED = ['model/hrnet_w32-36af842e.pth', 'model/hrnet_w32-36af842e.pth', '../model/hrnet_w32-36af842e.pth', 'model/hrnet_w32-36af842e.pth']
 _C.MODEL.NUM_JOINTS = 17
 _C.MODEL.TAG_PER_JOINT = True
 _C.MODEL.TARGET_TYPE = 'gaussian'
@@ -69,7 +69,7 @@ _C.LOSS.USE_DIFFERENT_JOINTS_WEIGHT = False
 # DATASET related params
 _C.DATASET = CN()
 _C.DATASET.DATASET = 'mpii'
-_C.DATASET.ROOT = ['/home/disk/weixing/datasets' ,'/home/bxx-wx/dataset', ""]
+_C.DATASET.ROOT = ['/home/disk/weixing/datasets' ,'/home/bxx-wx/dataset', "", "F:\\ggy\\xx\\dataset"]
 
 _C.DATASET.TRAIN_DATASET = 'mpii'
 _C.DATASET.TRAIN_SET = 'train'
@@ -191,9 +191,7 @@ def update_config(cfg, args):
     cfg.DATASET.ROOT = cfg.DATASET.ROOT[env]
     cfg.DATA_DIR = cfg.DATA_DIR[env]
     cfg.LOG_DIR = cfg.LOG_DIR[env]
-    cfg.DATASET.ROOT = os.path.join(
-        cfg.DATA_DIR, cfg.DATASET.ROOT
-    )
+    cfg.DATASET.ROOT = os.path.join(cfg.DATA_DIR, cfg.DATASET.ROOT)
 
     cfg.DATASET.TRAIN_IMAGE_DIR = os.path.join(cfg.DATASET.ROOT, cfg.DATASET.TRAIN_IMAGE_DIR)
     cfg.DATASET.TRAIN_ANNOTATION_FILE = os.path.join(cfg.DATASET.ROOT, cfg.DATASET.TRAIN_ANNOTATION_FILE)
