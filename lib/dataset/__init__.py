@@ -9,7 +9,6 @@ from __future__ import division
 from __future__ import print_function
 
 from .coco import COCODataset as coco
-from .crowdpose import COCODataset as crowdpose
 from .ochuman import COCODataset as ochuman
 
 
@@ -22,4 +21,5 @@ from .crowdpose_lambda import COCODataset as crowdpose_lambda
 from .coco_lambda_012 import COCODataset as coco_lambda_012
 from .coco_lambda_0123 import COCODataset as coco_lambda_0123
 
-
+from .crowdpose_lambda_withdp import COCODataset as crowdpose_lambda_withdp
+from .crowdpose_withdp import COCODataset as crowdpose_withdp

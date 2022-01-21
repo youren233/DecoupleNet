@@ -203,6 +203,9 @@ def update_config(cfg, args):
 
     cfg.freeze()
 
+    print("======> TRAIN_IMAGE_DIR: " + cfg.DATASET.TRAIN_IMAGE_DIR)
+    print("======> TRAIN_ANNOTATION_FILE: " + cfg.DATASET.TRAIN_ANNOTATION_FILE)
+
 
 if __name__ == '__main__':
     import sys

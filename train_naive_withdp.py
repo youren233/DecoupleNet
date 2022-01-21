@@ -53,7 +53,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-decouple-naive.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-decouple-naivedp.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -83,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_Dcp_Naive-2')
+                        default='Train_Dcp_Naive-depth')
 
 
     args = parser.parse_args()
@@ -139,7 +139,7 @@ def main():
             'train_global_steps': 0,
             'valid_global_steps': 0,
         }
-    dump_input = torch.rand((1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
+    dump_input = torch.rand((1, 6, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
     ### this is used to visualize the network
     ### throws an assertion error on cube3, works well on bheem
     # writer_dict['writer'].add_graph(model, (dump_input, ))
@@ -158,7 +158,7 @@ def main():
     criterion = JointsMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda()
 
     # Data loading code
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406, 0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225, 0.229, 0.224, 0.225])
 
     train_dataset = eval('lib.dataset.'+cfg.DATASET.TRAIN_DATASET)(
         cfg=cfg, image_dir=cfg.DATASET.TRAIN_IMAGE_DIR, annotation_file=cfg.DATASET.TRAIN_ANNOTATION_FILE,
