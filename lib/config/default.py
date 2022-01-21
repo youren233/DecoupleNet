@@ -69,7 +69,7 @@ _C.LOSS.USE_DIFFERENT_JOINTS_WEIGHT = False
 # DATASET related params
 _C.DATASET = CN()
 _C.DATASET.DATASET = 'mpii'
-_C.DATASET.ROOT = ['/home/disk/weixing/datasets' ,'/home/bxx-wx/dataset', "", "F:\\ggy\\xx\\dataset"]
+_C.DATASET.ROOT = ['/home/disk/weixing/datasets' ,'/home/bxx-wx/dataset', "", "F:\\ggy\\xnet\\dataset"]
 
 _C.DATASET.TRAIN_DATASET = 'mpii'
 _C.DATASET.TRAIN_SET = 'train'
