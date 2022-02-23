@@ -32,3 +32,4 @@ import lib.models.pose_hrnet_decouple_cnn
 import lib.models.pose_hrnet_decouple_naive
 
 import lib.models.pose_hrnet_decouple_naive_withdp
+import lib.models.pose_hrnet_decouple_stupid
