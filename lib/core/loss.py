@@ -261,7 +261,7 @@ class JointsOCKSMSELoss(nn.Module):
         # 遍历 batch
         for i in range(loss.size()[0]):
             sub_loss = loss[i]  # shape(14, )
-            ocks_loss += torch.sum(sub_loss[i])
+            ocks_loss += torch.sum(sub_loss)
             # get the false confused point idx
             num, confusedMask = self.getConfusedMask(pred[i], target_coord[i], another_coord[i],
                                                      meta['scale'][i], meta['joints_vis'][i])
