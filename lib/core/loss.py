@@ -11,7 +11,11 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
+
 from lib.utils.gaussian import GaussianSmoothing
+
+from lib.core.inference import get_max_preds
 
 
 class JointsMSELoss(nn.Module):
@@ -147,7 +151,7 @@ class JointsOHKMMSELoss(nn.Module):
     def ohkm(self, loss):
         ohkm_loss = 0.
         for i in range(loss.size()[0]):
-            sub_loss = loss[i]
+            sub_loss = loss[i]  # shape(14, )
             topk_val, topk_idx = torch.topk(
                 sub_loss, k=self.topk, dim=0, sorted=False
             )
@@ -177,13 +181,136 @@ class JointsOHKMMSELoss(nn.Module):
                 )
 
         loss = [l.mean(dim=1).unsqueeze(dim=1) for l in loss]
+        # shape: (B, joints num) (32, 14)
         loss = torch.cat(loss, dim=1)
 
         return self.ohkm(loss)
 
 # ----------------------------------------------------------------------
+class JointsOCKSMSELoss(nn.Module):
+    # Online Confused Keypoint Suppression
+    # skelenton = [[0, 2], [1, 3], [2, 4], [3, 5], [6, 8], [8, 10], [7, 9], [9, 11], [12, 13], [0, 13], [1, 13],
+    #             [6,13],[7, 13]]
 
+    def __init__(self, config):
+        super(JointsOCKSMSELoss, self).__init__()
+        self.criterion = nn.MSELoss(reduction='none')
+        self.use_target_weight = config.LOSS.USE_TARGET_WEIGHT
+        self.thres = config.LOSS.OKS_THRES
 
+        self.confusedCount = 0
+        self.confusedMask = []
 
+    def computeOks(self, dtCoord, gtCoord, area, vg):
+        '''
+        compute oks between dtCoord and gtCoord
 
+        dtCoord: [B, 14, 2]
+        gtCoord: [B, 14, 2]
+        '''
+        # 边界控制
+        pass
 
+        sigmas = np.array([.79, .79, .72, .72, .62, .62, 1.07, 1.07, .87, .87, .89, .89, .79, .79])/10.0
+        vars = (sigmas * 2)**2
+        k = len(sigmas)
+
+        # create bounds for ignore regions(double the gt bbox)
+        xg = gtCoord[:, 0]
+        yg = gtCoord[:, 1]
+        # vg = g[2::3]
+        # k1 = np.count_nonzero(vg > 0)
+        # if k1 == 0: # impossible
+        #     return iou
+
+        xd = dtCoord[:, 0]
+        yd = dtCoord[:, 1]
+        # measure the per-keypoint distance if keypoints visible
+        dx = xd - xg
+        dy = yd - yg
+
+        tmparea = area * 0.53
+        e = (dx**2 + dy**2) / vars / (tmparea+np.spacing(1)) / 2
+
+        e = e.numpy()
+        ious = np.exp(-e)
+        ious[vg == 0] = 0
+        return ious
+    
+    def getConfusedMask(self, pred, target_coord, another_coord, scale, joints_vis):
+        area = scale[0] * 160 * scale[1] * 160
+        # 找到预测错误的点
+        iou = self.computeOks(pred, target_coord, area, joints_vis[:, 0])
+        isFalse = iou < self.thres
+
+        # 计算是否与 another_coord接近
+        iou = self.computeOks(pred, another_coord, area, joints_vis[:, 0])
+        isConfused = iou > self.thres
+        confusedMask = isFalse & isConfused
+
+        return np.count_nonzero(confusedMask), confusedMask
+
+    def ocks(self, loss, output, target, another_target, meta):
+        # heatmap to point
+        pred, _ = get_max_preds(output.detach().cpu().numpy())    # [batch, 14, 2]
+        target_coord, _ = get_max_preds(target.detach().cpu().numpy())
+        another_coord, _ = get_max_preds(another_target.detach().cpu().numpy())
+
+        ocks_loss = 0.
+
+        # 遍历 batch
+        for i in range(loss.size()[0]):
+            sub_loss = loss[i]  # shape(14, )
+            ocks_loss += torch.sum(sub_loss[i])
+            # get the false confused point idx
+            num, confusedMask = self.getConfusedMask(pred[i], target_coord[i], another_coord[i],
+                                                     meta['scale'][i], meta['joints_vis'][i])
+            # debug
+            self.confusedMask = confusedMask
+            self.confusedCount += num
+
+            tmp_loss = sub_loss[confusedMask]
+            if num > 0:
+                ocks_loss += torch.sum(tmp_loss) / num
+        ocks_loss /= loss.size()[0]
+        return ocks_loss
+
+    def forward(self, output, target, another_target, target_weight, meta):
+        batch_size = output.size(0)
+        num_joints = output.size(1)
+        heatmaps_pred = output.reshape((batch_size, num_joints, -1)).split(1, 1)
+        heatmaps_gt = target.reshape((batch_size, num_joints, -1)).split(1, 1)
+
+        loss = []
+        for idx in range(num_joints):
+            heatmap_pred = heatmaps_pred[idx].squeeze()
+            heatmap_gt = heatmaps_gt[idx].squeeze()
+            if self.use_target_weight:
+                loss.append(0.5 * self.criterion(
+                    heatmap_pred.mul(target_weight[:, idx]),
+                    heatmap_gt.mul(target_weight[:, idx])
+                ))
+            else:
+                loss.append(
+                    0.5 * self.criterion(heatmap_pred, heatmap_gt)
+                )
+
+        loss = [l.mean(dim=1).unsqueeze(dim=1) for l in loss]
+        loss = torch.cat(loss, dim=1)   # shape: B, joints num. (32, 14)
+
+        return self.ocks(loss, output, target, another_target, meta)
+
+if __name__ == "__main__":
+    # unit test
+    import torch
+
+    output = torch.full([16, 14, 64, 48], 0.1) # B, joints num, 64, 48
+    another_pose = torch.full([16, 14, 64, 48], 0.1) # B, joints num, 64, 48
+    target = torch.full([16, 14, 64, 48], 0.2) # max: 0.2191; min: -0.1087
+    target_weight = torch.full([14], 10)
+
+    # criterion = JointsOCKSMSELoss(False)
+    criterion = JointsOHKMMSELoss(False)
+
+    loss = criterion(output, target, target_weight) #, another_pose
+    print("loss: {}\nshape:{}".format(loss, loss.shape))

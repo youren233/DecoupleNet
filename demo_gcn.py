@@ -202,7 +202,7 @@ def box_to_center_scale(box, model_image_width, model_image_height):
 def parse_args():
     parser = argparse.ArgumentParser(description='Train keypoints network')
     # general
-    parser.add_argument('--cfg', type=str, default='experiments/crowdpose/hrnet/w32_256x192-decouple-cnn.yaml')
+    parser.add_argument('--cfg', type=str, default='experiments/crowdpose/hrnet/w32_256x192-decouple-gcn.yaml')
     parser.add_argument('--video', type=str)
     parser.add_argument('--webcam',action='store_true')
     parser.add_argument('--image', type=str)
@@ -242,7 +242,7 @@ def main():
     pose_model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(
         cfg, is_train=False
     )
-    pose_model = torch.nn.DataParallel(pose_model, device_ids=cfg.GPUS)
+    # pose_model = torch.nn.DataParallel(pose_model, device_ids=cfg.GPUS)
 
     final_output_dir = 'ckpt'
     if cfg.TEST.MODEL_FILE:

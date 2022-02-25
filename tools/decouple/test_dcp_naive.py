@@ -70,7 +70,7 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Test_Dcp_naive')
+                        default='Test_Dcp')
 
     args = parser.parse_args()
     return args
