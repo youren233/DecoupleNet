@@ -41,10 +41,10 @@ DEBUG:
   SAVE_BATCH_IMAGES_PRED: true
   SAVE_HEATMAPS_GT: false
   SAVE_HEATMAPS_PRED: false
-DESCRIPTION: 'pose_hrnet_decouple_cnn-naive, just coarse'
+DESCRIPTION: 'pose_hrnet_decouple_interaction, just coarse'
 MODEL:
   INIT_WEIGHTS: true
-  NAME: pose_hrnet_decouple_stupid
+  NAME: pose_hrnet_decouple_ia
   DECOUPLE:
     HIDDEN_CHANNELS: 64
     COA_NUM_BLOCKS: 2
