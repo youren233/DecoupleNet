@@ -23,3 +23,4 @@ from .coco_lambda_0123 import COCODataset as coco_lambda_0123
 
 from .crowdpose_lambda_withdp import COCODataset as crowdpose_lambda_withdp
 from .crowdpose_withdp import COCODataset as crowdpose_withdp
+from .crowdpose_conet_skt import COCODataset as crowdpose_conet_skt

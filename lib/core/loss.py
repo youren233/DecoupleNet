@@ -300,6 +300,32 @@ class JointsOCKSMSELoss(nn.Module):
 
         return self.ocks(loss, output, target, another_target, meta)
 
+
+class ProMaskLoss(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx, output, pro_mask):
+        # L1 and L2 distance
+        distL1 = pro_mask - output
+        distL2 = distL1 ** 2
+
+        regionPos = (pro_mask > 0).float()
+        regionNeg = (pro_mask == 0).float()
+        sumPos = torch.sum(regionPos)
+        sumNeg = torch.sum(regionNeg)
+
+        weightPos = sumNeg / (sumPos + sumNeg).float() * regionPos
+        weightNeg = sumPos / (sumPos + sumNeg).float() * regionNeg
+        ctx.save_for_backward(distL1, weightPos, weightNeg)
+        return torch.sum(distL2 * (weightPos + weightNeg)) / (pro_mask.shape[0]) / 2 / torch.sum(
+            weightNeg + weightPos)
+
+    @staticmethod
+    def backward(ctx, loss_output):
+        distL1, weightPos, weightNeg = ctx.saved_tensors
+
+        return -distL1 * (weightPos + weightNeg) / 1, None
+
 if __name__ == "__main__":
     # unit test
     import torch

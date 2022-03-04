@@ -632,6 +632,78 @@ def train_dcp_cnn(config, train_loader, model, criterion, optimizer, writer_dict
     return
 # dcp-cnn------------
 
+# dcp-skt------------
+def train_dcp_skt(config, train_loader, model, criterion, skt_criterion, optimizer, writer_dict):
+    accAMer = AverageMeter()
+    pose_lossAMer = AverageMeter()
+    upPose_weight, downPose_weight, upSkt_weight, downSkt_weight = config['MODEL']['DECOUPLE']['OUT_WEIGHT']
+
+    # switch to train mode
+    model.train()
+
+    train_loader = tqdm(train_loader)
+
+    # end = time.time()
+    for i, (input, target_oc, target_weight_oc, meta_oc, target_oced, target_weight_oced, meta_oced) in enumerate(train_loader):
+        # data_time.update(time.time() - end)
+
+        input = input.cuda()
+        pose_dict = model(input)
+        upPose = pose_dict['up']
+        downPose = pose_dict['down']
+        upSkt = pose_dict['up_skt']
+        downSkt = pose_dict['down_skt']
+
+        target_oc = target_oc.cuda(non_blocking=True)
+        target_weight_oc = target_weight_oc.cuda(non_blocking=True)
+        target_oced = target_oced.cuda(non_blocking=True)
+        target_weight_oced = target_weight_oced.cuda(non_blocking=True)
+
+        upSktGt = meta_oc['skt_gt']
+        upSktGt = upSktGt.cuda(non_blocking=True)
+        downSktGT = meta_oced['skt_gt']
+        downSktGT = downSktGT.cuda(non_blocking=True)
+
+        loss_upPose = criterion(upPose, target_oc, target_weight_oc)
+        loss_downPose = criterion(downPose, target_oced, target_weight_oced)
+
+        loss_upSkt = 0.1 * skt_criterion.apply(upSkt, upSktGt)
+        loss_downSkt = 0.1 * skt_criterion.apply(downSkt, downSktGT)
+
+        pose_loss = loss_upPose*upPose_weight + loss_upSkt*upSkt_weight + loss_downPose*downPose_weight + loss_downSkt*downSkt_weight
+        # loss = pose_loss + 0.1*diversity_loss
+        loss = pose_loss
+
+        # compute gradient and do update step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # measure accuracy and record loss
+        pose_lossAMer.update(pose_loss.item(), input.size(0))
+        _, acc_cu, cnt_cu, pred_a = accuracy(upPose.detach().cpu().numpy(), target_oc.detach().cpu().numpy())
+        _, acc_cd, cnt_cd, pred_b = accuracy(downPose.detach().cpu().numpy(), target_oced.detach().cpu().numpy())
+        accAMer.update(acc_cu, cnt_cu)
+        accAMer.update(acc_cd, cnt_cd)
+        # measure elapsed time
+        # batch_time.update(time.time() - end)
+        # end = time.time()
+
+        if config.LOG:
+            msg = 'Loss:{loss:.5f} Acc:{acc:.5f}'.format(loss=pose_lossAMer.val, acc=accAMer.val)
+            train_loader.set_description(msg)
+
+        if i % config.PRINT_FREQ == 0 and config.LOG:
+            writer = writer_dict['writer']
+            global_steps = writer_dict['train_global_steps']
+            writer.add_scalar('train_loss', pose_lossAMer.val, global_steps)
+            writer.add_scalar('train_acc', accAMer.val, global_steps)
+            writer_dict['train_global_steps'] = global_steps + 1
+
+    train_loader.close()
+    return
+# dcp-skt------------
+
 # dcp-naive------------
 def train_dcp_naive(config, train_loader, model, criterion, optimizer, writer_dict):
     accAMer = AverageMeter()

@@ -34,21 +34,19 @@ from tensorboardX import SummaryWriter
 import _init_paths
 from lib.config import cfg
 from lib.config import update_config
-from lib.core.loss import JointsLambdaMSELoss
 from lib.core.loss import JointsMSELoss
-from lib.core.train import train_lambda
-from lib.core.validate import validate_lambda
-from lib.core.validate import validate_lambda_quantitative
-
-# from utils.utils import get_last_layer_optimizer
-from lib.utils.utils import get_optimizer
-from lib.utils.utils import save_checkpoint
-from lib.utils.utils import create_logger
-from lib.utils.utils import get_lambda_model_summary
-from lib.utils.utils import set_seed
+from lib.core.loss import ProMaskLoss
+from lib.core.train import train_dcp_skt
+from lib.core.validate import validate_dcp_naive
 
 import lib.dataset
 import lib.models
+from lib.utils.utils import get_optimizer
+from lib.utils.utils import save_checkpoint
+from lib.utils.utils import create_logger
+from lib.utils.utils import get_dcp_cnn_model_summary
+from lib.utils.utils import set_seed
+
 
 # --------------------------------------------------------------------------------
 def parse_args():
@@ -56,7 +54,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-xx.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-dcp-stupid-skt.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -86,7 +84,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='exp_train')
+                        default='Train_Dcp_stupid-skt')
 
 
     args = parser.parse_args()
@@ -97,6 +95,11 @@ def parse_args():
 def main():
     args = parse_args()
     update_config(cfg, args)
+
+    # close debug
+    cfg.defrost()
+    cfg.DEBUG.DEBUG = False
+    cfg.freeze()
 
     logger, final_output_dir, tb_log_dir = create_logger(
         cfg, args.cfg, 'train')
@@ -113,32 +116,22 @@ def main():
     torch.backends.cudnn.deterministic = cfg.CUDNN.DETERMINISTIC
     torch.backends.cudnn.enabled = cfg.CUDNN.ENABLED
 
-    device = cfg.GPUS[args.local_rank]
-    torch.cuda.set_device(device)
-
-    set_seed(seed_id=0)
     # 分布式训练 1）
     if dist:
         torch.distributed.init_process_group('nccl', init_method='env://')
+    set_seed(seed_id=0)
 
-    model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(
-        cfg, is_train=True
-    )
+    # GPU list: 按卡数分配 | 否则按指定的来
+    if cfg.ENV == 2:
+        cfg.defrost()
+        cfg.GPUS = list(range(torch.cuda.device_count()))
+        cfg.freeze()
 
-    # copy model file
-    # this_dir = os.path.dirname(__file__)
-    # shutil.copy2(
-    #     os.path.join(this_dir, 'lib/models', cfg.MODEL.NAME + '.py'),
-    #     final_output_dir)
-    # # copy train file
-    # shutil.copy2(
-    #     __file__,
-    #     final_output_dir)
-    #
-    # # copy synthetic dataset file
-    # shutil.copy2(
-    #     os.path.join(this_dir, 'lib/dataset', cfg.DATASET.SYNTHETIC_DATASET + '.py'),
-    #     final_output_dir)
+    device = cfg.GPUS[args.local_rank]
+    torch.cuda.set_device(device)
+    print("=> on GPU{}".format(device))
+
+    model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(cfg, is_train=True)
 
     writer_dict = None
     if cfg.LOG:
@@ -147,21 +140,15 @@ def main():
             'train_global_steps': 0,
             'valid_global_steps': 0,
         }
-
-    dump_input = torch.rand(
-        (1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0])
-    )
-    dump_lambda = torch.rand(
-        (1, 2)
-    )
+    dump_input = torch.rand((1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
     ### this is used to visualize the network
     ### throws an assertion error on cube3, works well on bheem
-    ### commented for now
     # writer_dict['writer'].add_graph(model, (dump_input, ))
 
-    logger.info(get_lambda_model_summary(model, dump_input, dump_lambda))
+    logger.info(get_dcp_cnn_model_summary(model, dump_input))
 
-    # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)#.cuda()
+    model = model.cuda()
+
     if dist:
         model = torch.nn.parallel.DistributedDataParallel(model)
     else:
@@ -169,17 +156,11 @@ def main():
 
      # ------------------------------------------
     # define loss function (criterion) and optimizer
-    criterion_lambda = JointsLambdaMSELoss(
-        use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT
-    ).cuda()
-    criterion = JointsMSELoss(
-        use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT
-    ).cuda()
+    criterion = JointsMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda()
+    skt_criterion = ProMaskLoss
 
     # Data loading code
-    normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     train_dataset = eval('lib.dataset.'+cfg.DATASET.TRAIN_DATASET)(
         cfg=cfg, image_dir=cfg.DATASET.TRAIN_IMAGE_DIR, annotation_file=cfg.DATASET.TRAIN_ANNOTATION_FILE,
@@ -200,8 +181,7 @@ def main():
             normalize,
         ])
     )
-    
-    # # # ----------------------------------------------
+
     train_sampler = None
     if dist:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -215,8 +195,8 @@ def main():
     )
 
     val_sampler = None
-    # if dist:
-    #     val_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset)
+    if dist:
+        val_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset)
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
         batch_size=cfg.TEST.BATCH_SIZE_PER_GPU * len(cfg.GPUS),
@@ -228,27 +208,16 @@ def main():
 
     # # # # # ---------------------------------------------
     best_perf = 0.0
-    perf_indicator = 0.0
-    best_model = False
     last_epoch = -1
+    perf_indicator = 0.0
+    save_freq = cfg.EPOCH_EVAL_FREQ // 5 + 1
+    is_best = True
     optimizer = get_optimizer(cfg, model)
     begin_epoch = cfg.TRAIN.BEGIN_EPOCH
     checkpoint_file = os.path.join(
         final_output_dir, 'checkpoint_resume.pth'
     )
-
-    # # # # ----------------------------------------------
-
-    # cfg.defrost()
-    # resume_lr_step = []
-    # for lr_step in cfg.TRAIN.LR_STEP:
-    #     lr_step = lr_step - begin_epoch
-    #     if lr_step >= 0:
-    #         resume_lr_step.append(lr_step)
-    #
-    # cfg.TRAIN.LR_STEP = resume_lr_step
-    # cfg.freeze()
-
+    # # # # ------------------------------------------------
     logger.info('=> updated lr schedule is {}'.format(cfg.TRAIN.LR_STEP))
     # 断点自动恢复训练
     if cfg.AUTO_RESUME and os.path.exists(checkpoint_file):
@@ -257,7 +226,7 @@ def main():
         begin_epoch = checkpoint['epoch']
         best_perf = checkpoint['perf']
         last_epoch = begin_epoch - 1
-        model.load_state_dict(checkpoint['state_dict'])
+        model.module.load_state_dict(checkpoint['state_dict'])
 
         optimizer.load_state_dict(checkpoint['optimizer'])
         logger.info("=> loaded checkpoint '{}' (epoch {})".format(
@@ -267,43 +236,37 @@ def main():
         optimizer, cfg.TRAIN.LR_STEP, cfg.TRAIN.LR_FACTOR,
         last_epoch=last_epoch
     )
-
-    # -----------------------------------------------
-    criterion_lambda = criterion_lambda.cuda()
+    # ----------------------------------------------------
     criterion = criterion.cuda()
-    model = model.cuda()
     for epoch in range(begin_epoch, cfg.TRAIN.END_EPOCH):
 
         # # # train for one epoch
         if cfg.LOG:
-            logger.info('====== training on lambda, lr={}, {} th epoch ======'
+            logger.info('====== training: lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
-        train_lambda(cfg, train_loader, model, criterion_lambda, criterion, optimizer, epoch,
-          final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
+        train_dcp_skt(cfg, train_loader, model, criterion, skt_criterion, optimizer, writer_dict)
 
         lr_scheduler.step()
 
-        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > 65:
-            perf_indicator = validate_lambda_quantitative(cfg, valid_loader, valid_dataset, model, criterion,
-                     final_output_dir, tb_log_dir, writer_dict, epoch=epoch, print_prefix='lambda', lambda_vals=[0, 1], log=logger)
+        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > (cfg.TRAIN.END_EPOCH - 15):
+            perf_indicator = validate_dcp_naive(cfg, valid_loader, valid_dataset, model,
+                     final_output_dir, writer_dict, epoch=epoch, lambda_vals=[0, 1], log=logger)
 
             if perf_indicator >= best_perf:
                 best_perf = perf_indicator
-                best_model = True
+                is_best = True
             else:
-                best_model = False
+                is_best = False
 
-        if cfg.LOG:
-            logger.info('=> model[ap: {}] saving checkpoint to {}'.format(perf_indicator, final_output_dir))
+        if cfg.LOG and (epoch % save_freq == 0 or epoch > (cfg.TRAIN.END_EPOCH - 15)):
+            logger.info('=> model AP: {} | saving checkpoint to {}'.format(perf_indicator, final_output_dir))
             save_checkpoint({
                 'epoch': epoch + 1,
                 'model': cfg.MODEL.NAME,
-                'state_dict': model.state_dict(),
-                'latest_state_dict': model.module.state_dict(),
-                'best_state_dict': model.module.state_dict(),
+                'state_dict': model.module.state_dict(),
                 'perf': perf_indicator,
                 'optimizer': optimizer.state_dict(),
-                }, best_model, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))
+                }, is_best, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))
 
     # # ----------------------------------------------
     if cfg.LOG:
@@ -313,7 +276,7 @@ def main():
         logger.info('=> saving final model state to {}'.format(
             final_model_state_file)
         )
-        torch.save(model.module.state_dict(), final_model_state_file)
+        torch.save(model.module.state_dict(), final_model_state_file)  # .module
         writer_dict['writer'].close()
 
 # --------------------------------------------------------------------------------

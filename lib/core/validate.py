@@ -907,7 +907,7 @@ def _print_name_value(name_value, full_arch_name, log=logger):
         full_arch_name = full_arch_name[:8] + '...'
     log.info(
         '| ' + full_arch_name + ' ' +
-        ' '.join(['| {:.3f}'.format(value) for value in values]) +
+        ' '.join(['| {:.4f}'.format(value) for value in values]) +
          ' |'
     )
 
