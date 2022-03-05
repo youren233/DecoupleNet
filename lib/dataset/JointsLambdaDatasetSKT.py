@@ -237,6 +237,10 @@ class JointsLambdaDatasetSKT(Dataset):
         input = mix[:, :, 0:3]
         skt_gt = mix[:, :, 3]
         another_skt_gt = mix[:, :, 4]
+        # 缩小为 heatmap大小
+        skt_gt = cv2.resize(skt_gt, self.heatmap_size)
+        another_skt_gt = cv2.resize(another_skt_gt, self.heatmap_size)
+
         skt_gt = toTensor(skt_gt)
         another_skt_gt = toTensor(another_skt_gt)
 

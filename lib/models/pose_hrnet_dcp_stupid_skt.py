@@ -517,6 +517,7 @@ class CoarseRefineDecouple(nn.Module):
             stride=1,
             padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
         )
+        self.skt_extract_up = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
         self.skt_predictor_up = self._make_skt_predictor(hidden_channels, 1)
         # ---------------------- down -------------------
         # coarse branch
@@ -528,6 +529,7 @@ class CoarseRefineDecouple(nn.Module):
             stride=1,
             padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
         )
+        self.skt_extract_down = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
         self.skt_predictor_down = self._make_skt_predictor(hidden_channels, 1)
 
     def forward(self, x):
@@ -540,12 +542,15 @@ class CoarseRefineDecouple(nn.Module):
         # 上双分支
         x_skt_up = x.clone()
         coarse_out_up = self.coarse_predictor_up(x)
+
+        x_skt_up = self.skt_extract_up(x_skt_up)
         skt_up = self.skt_predictor_up(x_skt_up)
         # down
         x_down = self.coarse_extract_down(x_down)
         # 下双分支
         x_skt_down = x_down.clone()
         coarse_out_down = self.coarse_predictor_down(x_down)
+        x_skt_down = self.skt_extract_down(x_skt_down)
         skt_down = self.skt_predictor_down(x_skt_down)
 
         if not self.is_train:
@@ -560,13 +565,13 @@ class CoarseRefineDecouple(nn.Module):
     def _make_extract_layer(self, num_basicBlock, in_channels, out_channels):
         # ablation: pure cnn
         layers = []
-        cbam_before = CBAMBlock(in_channels)
+        # cbam_before = CBAMBlock(in_channels)
         # layers.append(cbam_before)
 
         for i in range(num_basicBlock):
             layers.append(BasicBlock(in_channels, out_channels))
 
-        cbam_after = CBAMBlock(out_channels)
+        # cbam_after = CBAMBlock(out_channels)
         # layers.append(cbam_after)
         return nn.Sequential(*layers)
 
@@ -585,21 +590,29 @@ class CoarseRefineDecouple(nn.Module):
     def _make_skt_predictor(self, in_channels, out_channels):
         # 两次反卷积
         layers = []
-        layers.append(
-            nn.ConvTranspose2d(
-                in_channels=in_channels,
-                out_channels=int(in_channels / 2),
-                kernel_size=4, stride=2, padding=1, bias=False))
-        layers.append(nn.BatchNorm2d(int(in_channels / 2), momentum=BN_MOMENTUM))
-        layers.append(nn.ReLU(inplace=True))
-
-        layers.append(
-            nn.ConvTranspose2d(
-                in_channels=int(in_channels / 2),
-                out_channels=int(in_channels / 4),
-                kernel_size=4, stride=2, padding=1, bias=False))
+        # layers.append(BasicBlock(int(in_channels / 4), int(in_channels / 8)))
+        layers.append(nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=int(in_channels / 4),
+            kernel_size=1,
+            stride=1,
+            padding=0)
+        )
+        # layers.append(
+        #     nn.ConvTranspose2d(
+        #         in_channels=in_channels,
+        #         out_channels=int(in_channels / 2),
+        #         kernel_size=4, stride=2, padding=1, bias=False))
         layers.append(nn.BatchNorm2d(int(in_channels / 4), momentum=BN_MOMENTUM))
         layers.append(nn.ReLU(inplace=True))
+        #
+        # layers.append(
+        #     nn.ConvTranspose2d(
+        #         in_channels=int(in_channels / 2),
+        #         out_channels=int(in_channels / 4),
+        #         kernel_size=4, stride=2, padding=1, bias=False))
+        # layers.append(nn.BatchNorm2d(int(in_channels / 4), momentum=BN_MOMENTUM))
+        # layers.append(nn.ReLU(inplace=True))
         layers.append(nn.Conv2d(
                 in_channels=int(in_channels / 4),
                 out_channels=out_channels,
