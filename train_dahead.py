@@ -35,8 +35,7 @@ import _init_paths
 from lib.config import cfg
 from lib.config import update_config
 from lib.core.loss import JointsMSELoss
-from lib.core.loss import ProMaskLoss
-from lib.core.train import train_dcp_skt
+from lib.core.train import train_dcp_naive
 from lib.core.validate import validate_dcp_naive
 
 import lib.dataset
@@ -54,7 +53,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-dcp-stupid-skt.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-decouple-dahead.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -84,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_Dcp_stupid-skt')
+                        default='Train_dahead')
 
 
     args = parser.parse_args()
@@ -140,7 +139,7 @@ def main():
             'train_global_steps': 0,
             'valid_global_steps': 0,
         }
-    dump_input = torch.rand((1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
+    dump_input = torch.rand((16, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]))
     ### this is used to visualize the network
     ### throws an assertion error on cube3, works well on bheem
     # writer_dict['writer'].add_graph(model, (dump_input, ))
@@ -157,7 +156,6 @@ def main():
      # ------------------------------------------
     # define loss function (criterion) and optimizer
     criterion = JointsMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda()
-    skt_criterion = ProMaskLoss
 
     # Data loading code
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -244,7 +242,7 @@ def main():
         if cfg.LOG:
             logger.info('====== training: lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
-        train_dcp_skt(cfg, train_loader, model, criterion, skt_criterion, optimizer, writer_dict)
+        train_dcp_naive(cfg, train_loader, model, criterion, optimizer, writer_dict)
 
         lr_scheduler.step()
 

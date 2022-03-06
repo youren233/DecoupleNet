@@ -636,7 +636,7 @@ def train_dcp_cnn(config, train_loader, model, criterion, optimizer, writer_dict
 def train_dcp_skt(config, train_loader, model, criterion, skt_criterion, optimizer, writer_dict):
     accAMer = AverageMeter()
     pose_lossAMer = AverageMeter()
-    upPose_weight, downPose_weight, upSkt_weight, downSkt_weight = config['MODEL']['DECOUPLE']['OUT_WEIGHT']
+    upPose_weight, downPose_weight, upSkt_weight, downSkt_weight = config['MODEL']['HEAD']['OUT_WEIGHT']
 
     # switch to train mode
     model.train()
@@ -652,7 +652,7 @@ def train_dcp_skt(config, train_loader, model, criterion, skt_criterion, optimiz
         upPose = pose_dict['up']
         downPose = pose_dict['down']
         upSkt = pose_dict['up_skt']
-        downSkt = pose_dict['down_skt']
+        # downSkt = pose_dict['down_skt']
 
         target_oc = target_oc.cuda(non_blocking=True)
         target_weight_oc = target_weight_oc.cuda(non_blocking=True)
@@ -662,15 +662,15 @@ def train_dcp_skt(config, train_loader, model, criterion, skt_criterion, optimiz
         upSktGt = meta_oc['skt_gt']
         upSktGt = upSktGt.cuda(non_blocking=True)
         downSktGT = meta_oced['skt_gt']
-        downSktGT = downSktGT.cuda(non_blocking=True)
+        # downSktGT = downSktGT.cuda(non_blocking=True)
 
         loss_upPose = criterion(upPose, target_oc, target_weight_oc)
         loss_downPose = criterion(downPose, target_oced, target_weight_oced)
 
         loss_upSkt = 0.1 * skt_criterion.apply(upSkt, upSktGt)
-        loss_downSkt = 0.1 * skt_criterion.apply(downSkt, downSktGT)
+        # loss_downSkt = 0.1 * skt_criterion.apply(downSkt, downSktGT)
 
-        pose_loss = loss_upPose*upPose_weight + loss_upSkt*upSkt_weight + loss_downPose*downPose_weight + loss_downSkt*downSkt_weight
+        pose_loss = loss_upPose*upPose_weight + loss_upSkt*upSkt_weight + loss_downPose*downPose_weight #+ loss_downSkt*downSkt_weight
         # loss = pose_loss + 0.1*diversity_loss
         loss = pose_loss
 
@@ -708,7 +708,7 @@ def train_dcp_skt(config, train_loader, model, criterion, skt_criterion, optimiz
 def train_dcp_naive(config, train_loader, model, criterion, optimizer, writer_dict):
     accAMer = AverageMeter()
     pose_lossAMer = AverageMeter()
-    _, _, ru_weight, rd_weight = config['MODEL']['DECOUPLE']['OUT_WEIGHT']
+    _, _, ru_weight, rd_weight = config['MODEL']['HEAD']['OUT_WEIGHT']
 
     # switch to train mode
     model.train()

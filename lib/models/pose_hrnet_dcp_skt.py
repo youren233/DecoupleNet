@@ -493,102 +493,79 @@ class CoarseRefineDecouple(nn.Module):
 
     def __init__(self, cfg, in_channels, is_train=True):
         super(CoarseRefineDecouple, self).__init__()
-        hidden_channels = cfg.MODEL.DECOUPLE['HIDDEN_CHANNELS']
-        coarse_num_blocks = cfg.MODEL.DECOUPLE['COA_NUM_BLOCKS']
-        refine_num_blocks = cfg.MODEL.DECOUPLE['REF_NUM_BLOCKS']
+        hidden_channels = cfg.MODEL.HEAD['HIDDEN_CHANNELS']
+        coarse_num_blocks = cfg.MODEL.HEAD['COA_NUM_BLOCKS']
+        final_conv_kernel = cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL']
+        refine_num_blocks = cfg.MODEL.HEAD['REF_NUM_BLOCKS']
         num_joints = cfg['MODEL']['NUM_JOINTS']
         self.is_train = is_train
-        # ---------------------- up -------------------
-        self.transition_coarse = nn.Sequential(
-            nn.Conv2d(
-                in_channels,
-                hidden_channels,
-                1, 1, bias=False
-            ),
+        # ---------------------- transition -------------------
+        self.transition_up = nn.Sequential(
+            nn.Conv2d(in_channels + hidden_channels, hidden_channels, 1, 1, bias=False),
             nn.BatchNorm2d(hidden_channels),
             nn.ReLU(inplace=True)
         )
-        # coarse branch
-        self.coarse_extract_up = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
-        self.coarse_predictor_up = nn.Conv2d(
-            in_channels=hidden_channels,
-            out_channels=num_joints,
-            kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
-            stride=1,
-            padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
+        self.transition_down = nn.Sequential(
+            nn.Conv2d(in_channels + hidden_channels, hidden_channels, 1, 1, bias=False),
+            nn.BatchNorm2d(hidden_channels),
+            nn.ReLU(inplace=True)
         )
-        self.skt_extract_up = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
-        self.skt_predictor_up = self._make_skt_predictor(hidden_channels, 1)
-        # ---------------------- down -------------------
-        # coarse branch
-        self.coarse_extract_down = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
-        self.coarse_predictor_down = nn.Conv2d(
-            in_channels=hidden_channels,
-            out_channels=num_joints,
-            kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
-            stride=1,
-            padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
+        self.transition_skt = nn.Sequential(
+            nn.Conv2d(in_channels, hidden_channels, 1, 1, bias=False),
+            nn.BatchNorm2d(hidden_channels),
+            nn.ReLU(inplace=True)
         )
-        self.skt_extract_down = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
-        self.skt_predictor_down = self._make_skt_predictor(hidden_channels, 1)
+        # ---------------------- extract -------------------
+        self.extract_up = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
+        self.extract_down = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
+        self.extract_skt = self._make_extract_layer(coarse_num_blocks * 2, hidden_channels, hidden_channels)
+        # ---------------------- predictor -------------------
+        self.predictor_up = nn.Conv2d(in_channels=hidden_channels, out_channels=num_joints,
+                                      kernel_size=final_conv_kernel,
+                                      stride=1,
+                                      padding=1 if final_conv_kernel == 3 else 0)
+        self.predictor_down = nn.Conv2d(in_channels=hidden_channels, out_channels=num_joints,
+                                        kernel_size=final_conv_kernel,
+                                        stride=1,
+                                        padding=1 if final_conv_kernel == 3 else 0)
+        self.predictor_skt = self._make_skt_predictor(hidden_channels, 1)
 
     def forward(self, x):
-        # transition
-        x = self.transition_coarse(x)
-        # --------------------------- coarse ------------------------
-        x_down = x.clone()
-        # up
-        x = self.coarse_extract_up(x)
-        # 上双分支
-        x_skt_up = x.clone()
-        coarse_out_up = self.coarse_predictor_up(x)
+        x_skt_out = x
+        x_up_out = x
+        x_down_out = x
 
-        x_skt_up = self.skt_extract_up(x_skt_up)
-        skt_up = self.skt_predictor_up(x_skt_up)
+        # skt
+        x_skt_feat = self.extract_skt(self.transition_skt(x_skt_out))
+        x_skt_out = self.predictor_skt(x_skt_feat)
+
+        # up
+        x_up_out = torch.cat([x_skt_feat, x_up_out], dim=1)
+        x_up_feat = self.extract_up(self.transition_up(x_up_out))
+        x_up_out = self.predictor_up(x_up_feat)
+
         # down
-        x_down = self.coarse_extract_down(x_down)
-        # 下双分支
-        x_skt_down = x_down.clone()
-        coarse_out_down = self.coarse_predictor_down(x_down)
-        x_skt_down = self.skt_extract_down(x_skt_down)
-        skt_down = self.skt_predictor_down(x_skt_down)
+        x_down_out = torch.cat([x_up_feat, x_down_out], dim=1)
+        x_down_out = self.extract_down(self.transition_down(x_down_out))
+        x_down_out = self.predictor_down(x_down_out)
 
         if not self.is_train:
-            return coarse_out_up
+            return x_up_out
         return {
-            'up': coarse_out_up,
-            'down':coarse_out_down,
-            'up_skt': skt_up,
-            'down_skt': skt_down
+            'up': x_up_out,
+            'down': x_down_out,
+            'up_skt': x_skt_out,
+            'down_skt': 0,
         }
 
     def _make_extract_layer(self, num_basicBlock, in_channels, out_channels):
         # ablation: pure cnn
         layers = []
-        # cbam_before = CBAMBlock(in_channels)
-        # layers.append(cbam_before)
-
         for i in range(num_basicBlock):
             layers.append(BasicBlock(in_channels, out_channels))
-
-        # cbam_after = CBAMBlock(out_channels)
-        # layers.append(cbam_after)
-        return nn.Sequential(*layers)
-
-    def _make_fuse_layer(self, num_basicBlock, in_channels, out_channels):
-        layers = []
-        cbam_before = CBAMBlock(in_channels)
-        # layers.append(cbam_before)
-
-        for i in range(num_basicBlock):
-            layers.append(BasicBlock(in_channels, out_channels))
-
-        cbam_after = CBAMBlock(out_channels)
-        # layers.append(cbam_after)
         return nn.Sequential(*layers)
 
     def _make_skt_predictor(self, in_channels, out_channels):
-        # 两次反卷积
         layers = []
         # layers.append(BasicBlock(int(in_channels / 4), int(in_channels / 8)))
         layers.append(nn.Conv2d(
@@ -598,34 +575,22 @@ class CoarseRefineDecouple(nn.Module):
             stride=1,
             padding=0)
         )
-        # layers.append(
-        #     nn.ConvTranspose2d(
-        #         in_channels=in_channels,
-        #         out_channels=int(in_channels / 2),
-        #         kernel_size=4, stride=2, padding=1, bias=False))
         layers.append(nn.BatchNorm2d(int(in_channels / 4), momentum=BN_MOMENTUM))
         layers.append(nn.ReLU(inplace=True))
-        #
-        # layers.append(
-        #     nn.ConvTranspose2d(
-        #         in_channels=int(in_channels / 2),
-        #         out_channels=int(in_channels / 4),
-        #         kernel_size=4, stride=2, padding=1, bias=False))
-        # layers.append(nn.BatchNorm2d(int(in_channels / 4), momentum=BN_MOMENTUM))
-        # layers.append(nn.ReLU(inplace=True))
         layers.append(nn.Conv2d(
-                in_channels=int(in_channels / 4),
-                out_channels=out_channels,
-                kernel_size=1,
-                stride=1,
-                padding=0)
+            in_channels=int(in_channels / 4),
+            out_channels=out_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0)
         )
         return nn.Sequential(*layers)
+
 
 def get_pose_net(cfg, is_train, **kwargs):
     model = PoseHighResolutionNet(cfg, is_train=is_train, **kwargs)
 
-    print('==============> Got pose_hrnet_decouple_cnn-stupid')
+    print('==============> Got pose_hrnet dcp-------- skeleton guided!')
     if is_train and cfg['MODEL']['INIT_WEIGHTS']:
         model.init_weights(cfg['MODEL']['PRETRAINED'])
 

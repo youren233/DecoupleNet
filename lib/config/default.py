@@ -40,7 +40,7 @@ _C.CUDNN.ENABLED = True
 _C.MODEL = CN()
 _C.MODEL.NAME = 'pose_hrnet'
 
-_C.MODEL.DECOUPLE = CN(new_allowed=True)
+_C.MODEL.HEAD = CN(new_allowed=True)
 # Options: "" (no norm), "GN", "SyncBN".
 # _C.MODEL.DECOUPLE.NORM = ""
 # _C.MODEL.DECOUPLE.NUM_CONV = 0  # The number of convs in the mask head
