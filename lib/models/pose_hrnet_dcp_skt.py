@@ -501,7 +501,7 @@ class CoarseRefineDecouple(nn.Module):
         self.is_train = is_train
         # ---------------------- transition -------------------
         self.transition_up = nn.Sequential(
-            nn.Conv2d(in_channels + hidden_channels, hidden_channels, 1, 1, bias=False),
+            nn.Conv2d(in_channels, hidden_channels, 1, 1, bias=False),
             nn.BatchNorm2d(hidden_channels),
             nn.ReLU(inplace=True)
         )
@@ -518,7 +518,7 @@ class CoarseRefineDecouple(nn.Module):
         # ---------------------- extract -------------------
         self.extract_up = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
         self.extract_down = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
-        self.extract_skt = self._make_extract_layer(coarse_num_blocks * 2, hidden_channels, hidden_channels)
+        self.extract_skt = self._make_extract_layer(coarse_num_blocks * 4, hidden_channels, hidden_channels)
         # ---------------------- predictor -------------------
         self.predictor_up = nn.Conv2d(in_channels=hidden_channels, out_channels=num_joints,
                                       kernel_size=final_conv_kernel,
@@ -540,7 +540,7 @@ class CoarseRefineDecouple(nn.Module):
         x_skt_out = self.predictor_skt(x_skt_feat)
 
         # up
-        x_up_out = torch.cat([x_skt_feat, x_up_out], dim=1)
+        # x_up_out = torch.cat([x_skt_feat, x_up_out], dim=1)
         x_up_feat = self.extract_up(self.transition_up(x_up_out))
         x_up_out = self.predictor_up(x_up_feat)
 
