@@ -493,9 +493,9 @@ class CoarseRefineDecouple(nn.Module):
 
     def __init__(self, cfg, in_channels, is_train=True):
         super(CoarseRefineDecouple, self).__init__()
-        hidden_channels = cfg.MODEL.DECOUPLE['HIDDEN_CHANNELS']
-        coarse_num_blocks = cfg.MODEL.DECOUPLE['COA_NUM_BLOCKS']
-        refine_num_blocks = cfg.MODEL.DECOUPLE['REF_NUM_BLOCKS']
+        hidden_channels = cfg.MODEL.HEAD['HIDDEN_CHANNELS']
+        coarse_num_blocks = cfg.MODEL.HEAD['COA_NUM_BLOCKS']
+        refine_num_blocks = cfg.MODEL.HEAD['REF_NUM_BLOCKS']
         num_joints = cfg['MODEL']['NUM_JOINTS']
         self.is_train = is_train
         # ---------------------- up -------------------
@@ -566,11 +566,11 @@ class CoarseRefineDecouple(nn.Module):
         # transition
         x = self.transition_coarse(x)
         # --------------------------- coarse ------------------------
-        x_down = x.clone()
         # up
-        x = self.coarse_extract_up(x)
-        coarse_out_up = self.coarse_predictor_up(x)
+        x_feat_up = self.coarse_extract_up(x)
+        coarse_out_up = self.coarse_predictor_up(x_feat_up)
         # down
+        x_down = x + x_feat_up
         x_down = self.coarse_extract_down(x_down)
         coarse_out_down = self.coarse_predictor_down(x_down)
 
@@ -583,9 +583,10 @@ class CoarseRefineDecouple(nn.Module):
         x_down = x.clone()
         # --------------------------- refine ------------------------
         # up
-        x = self.refine_feature_fuse_up(x)
-        refine_out_up = self.refine_predictor_up(x)
+        x_feat_r_up = self.refine_feature_fuse_up(x)
+        refine_out_up = self.refine_predictor_up(x_feat_r_up)
         # down
+        x_down = x_feat_r_up + x
         x_down = self.refine_feature_fuse_down(x_down)
         refine_out_down = self.refine_predictor_down(x_down)
 

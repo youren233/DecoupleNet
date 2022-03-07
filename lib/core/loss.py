@@ -196,6 +196,7 @@ class JointsOCKSMSELoss(nn.Module):
         super(JointsOCKSMSELoss, self).__init__()
         self.criterion = nn.MSELoss(reduction='none')
         self.use_target_weight = config.LOSS.USE_TARGET_WEIGHT
+        self.ohkm_criterion = JointsOHKMMSELoss(self.use_target_weight)
         self.thres = config.LOSS.OKS_THRES
 
         self.confusedCount = 0
@@ -276,6 +277,7 @@ class JointsOCKSMSELoss(nn.Module):
         return ocks_loss
 
     def forward(self, output, target, another_target, target_weight, meta):
+        ohkm_loss = self.ohkm_criterion(output, target, target_weight)
         batch_size = output.size(0)
         num_joints = output.size(1)
         heatmaps_pred = output.reshape((batch_size, num_joints, -1)).split(1, 1)
@@ -298,7 +300,7 @@ class JointsOCKSMSELoss(nn.Module):
         loss = [l.mean(dim=1).unsqueeze(dim=1) for l in loss]
         loss = torch.cat(loss, dim=1)   # shape: B, joints num. (32, 14)
 
-        return self.ocks(loss, output, target, another_target, meta)
+        return ohkm_loss + self.ocks(loss, output, target, another_target, meta)
 
 
 class ProMaskLoss(torch.autograd.Function):

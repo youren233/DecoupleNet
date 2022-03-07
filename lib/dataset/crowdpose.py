@@ -590,52 +590,52 @@ class COCODataset(JointsDataset):
             # # oks_img_kpts_merged = oks_merge(kpts_db_mode0=img_kpts_mode0, kpts_db_mode1=img_kpts_mode1, min_oks_thres=0.95)
 
             # # ------------------------------
-            img_kpts_merged = img_kpts_mode0 + img_kpts_mode1
+            # img_kpts_merged = img_kpts_mode0 + img_kpts_mode1
             # keep = oks_nms(img_kpts_merged, oks_thre)
-            keep = []
-            oks_img_kpts_merged = [img_kpts_merged[_keep] for _keep in keep]
+            # keep = []
+            # oks_img_kpts_merged = [img_kpts_merged[_keep] for _keep in keep]
 
             # keep_mode0 = oks_nms(img_kpts_mode0, oks_thre)
-            keep_mode0 = []
-            oks_img_kpts_mode0 = [img_kpts_mode0[_keep] for _keep in keep_mode0]
+            # keep_mode0 = []
+            # oks_img_kpts_mode0 = [img_kpts_mode0[_keep] for _keep in keep_mode0]
 
             # keep_mode1 = oks_nms(img_kpts_mode1, oks_thre)
-            keep_mode1 = []
-            oks_img_kpts_mode1 = [img_kpts_mode1[_keep] for _keep in keep_mode1]
+            # keep_mode1 = []
+            # oks_img_kpts_mode1 = [img_kpts_mode1[_keep] for _keep in keep_mode1]
+            #
+            # keep_mode2 = []
+            # oks_img_kpts_mode2 = [img_kpts_mode2[_keep] for _keep in keep_mode2]
+            #
+            # keep_mode3 = []
+            # oks_img_kpts_mode3 = [img_kpts_mode3[_keep] for _keep in keep_mode3]
 
-            keep_mode2 = []
-            oks_img_kpts_mode2 = [img_kpts_mode2[_keep] for _keep in keep_mode2]
-
-            keep_mode3 = []
-            oks_img_kpts_mode3 = [img_kpts_mode3[_keep] for _keep in keep_mode3]
-
-
-            # ------------------------------
-            if len(keep_mode0) == 0:
-                oks_nmsed_kpts_mode0.append(img_kpts_mode0)
-            else:
-                oks_nmsed_kpts_mode0.append(oks_img_kpts_mode0)
-
-            if len(keep_mode1) == 0:
-                oks_nmsed_kpts_mode1.append(img_kpts_mode1)
-            else:
-                oks_nmsed_kpts_mode1.append(oks_img_kpts_mode1)
-
-            if len(keep_mode2) == 0:
-                oks_nmsed_kpts_mode2.append(img_kpts_mode2)
-            else:
-                oks_nmsed_kpts_mode2.append(oks_img_kpts_mode2)
-
-            if len(keep_mode3) == 0:
-                oks_nmsed_kpts_mode3.append(img_kpts_mode3)
-            else:
-                oks_nmsed_kpts_mode3.append(oks_img_kpts_mode3)
 
             # ------------------------------
-            if len(keep) == 0:
-                oks_nmsed_kpts.append(img_kpts)
-            else:
-                oks_nmsed_kpts.append(oks_img_kpts_merged)
+            # if len(keep_mode0) == 0:
+            oks_nmsed_kpts_mode0.append(img_kpts_mode0)
+            # else:
+            #     oks_nmsed_kpts_mode0.append(oks_img_kpts_mode0)
+
+            # if len(keep_mode1) == 0:
+            oks_nmsed_kpts_mode1.append(img_kpts_mode1)
+            # else:
+            #     oks_nmsed_kpts_mode1.append(oks_img_kpts_mode1)
+            #
+            # if len(keep_mode2) == 0:
+            oks_nmsed_kpts_mode2.append(img_kpts_mode2)
+            # else:
+            #     oks_nmsed_kpts_mode2.append(oks_img_kpts_mode2)
+            #
+            # if len(keep_mode3) == 0:
+            oks_nmsed_kpts_mode3.append(img_kpts_mode3)
+            # else:
+            #     oks_nmsed_kpts_mode3.append(oks_img_kpts_mode3)
+            #
+            # # ------------------------------
+            # if len(keep) == 0:
+            oks_nmsed_kpts.append(img_kpts)
+            # else:
+            #     oks_nmsed_kpts.append(oks_img_kpts_merged)
 
         oks_len_kps = sum([len(kps) for kps in oks_nmsed_kpts])
         oks_len_kps_mode0 = sum([len(kps) for kps in oks_nmsed_kpts_mode0])
