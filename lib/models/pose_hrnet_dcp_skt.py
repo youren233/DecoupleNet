@@ -561,8 +561,12 @@ class CoarseRefineDecouple(nn.Module):
     def _make_extract_layer(self, num_basicBlock, in_channels, out_channels):
         # ablation: pure cnn
         layers = []
+
+        layers.append(CBAMBlock(in_channels))
         for i in range(num_basicBlock):
             layers.append(BasicBlock(in_channels, out_channels))
+        layers.append(CBAMBlock(in_channels))
+
         return nn.Sequential(*layers)
 
     def _make_skt_predictor(self, in_channels, out_channels):
