@@ -250,7 +250,7 @@ def main():
 
         if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > (cfg.TRAIN.END_EPOCH - 5):
             perf_indicator = validate_dcp_cr(cfg, valid_loader, valid_dataset, model,
-                     final_output_dir, writer_dict, epoch=epoch, lambda_vals=[0, 1, 2, 3], log=logger)
+                     final_output_dir, writer_dict, epoch=epoch, lambda_vals=[0, 1], log=logger)
 
             if perf_indicator >= best_perf:
                 best_perf = perf_indicator
