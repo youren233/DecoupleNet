@@ -637,7 +637,7 @@ def validate_dcp_cnn(config, val_loader, val_dataset, model, output_dir, writer_
 
 # dcp-cr
 def validate_dcp_cr(config, val_loader, val_dataset, model, output_dir, writer_dict=None,
-                     epoch=-1, lambda_vals=[0, 1, 2, 3], log=logger):
+                     epoch=-1, lambda_vals=[0, 1], log=logger):
     accAMer = AverageMeter()
 
     if not os.path.exists(output_dir):
@@ -696,23 +696,23 @@ def validate_dcp_cr(config, val_loader, val_dataset, model, output_dir, writer_d
 
                 # ----------------- c ---------------
                 # occ
-                cu_flipped = flip_back(cu_flipped.cpu().numpy(), val_dataset.flip_pairs)
-                cu_flipped = torch.from_numpy(cu_flipped.copy()).cuda()
-
-                # feature is not aligned, shift flipped heatmap for higher accuracy
-                if config.TEST.SHIFT_HEATMAP:
-                    cu_flipped[:, :, :, 1:] = cu_flipped.clone()[:, :, :, 0:-1]
-                cu = (cu + cu_flipped) * 0.5
-
-                # occee
-                cd_flipped = flip_back(cd_flipped.cpu().numpy(), val_dataset.flip_pairs)
-                cd_flipped = torch.from_numpy(cd_flipped.copy()).cuda()
-
-                if config.TEST.SHIFT_HEATMAP:
-                    cd_flipped[:, :, :, 1:] = cd_flipped.clone()[:, :, :, 0:-1]
-
-                cd = (cd + cd_flipped) * 0.5
-            for m, output in enumerate([cu, cd, ru, rd]):
+                # cu_flipped = flip_back(cu_flipped.cpu().numpy(), val_dataset.flip_pairs)
+                # cu_flipped = torch.from_numpy(cu_flipped.copy()).cuda()
+                #
+                # # feature is not aligned, shift flipped heatmap for higher accuracy
+                # if config.TEST.SHIFT_HEATMAP:
+                #     cu_flipped[:, :, :, 1:] = cu_flipped.clone()[:, :, :, 0:-1]
+                # cu = (cu + cu_flipped) * 0.5
+                #
+                # # occee
+                # cd_flipped = flip_back(cd_flipped.cpu().numpy(), val_dataset.flip_pairs)
+                # cd_flipped = torch.from_numpy(cd_flipped.copy()).cuda()
+                #
+                # if config.TEST.SHIFT_HEATMAP:
+                #     cd_flipped[:, :, :, 1:] = cd_flipped.clone()[:, :, :, 0:-1]
+                #
+                # cd = (cd + cd_flipped) * 0.5
+            for m, output in enumerate([ru, rd]):
                 # b x [0, 1], b x [1, 0]
                 mode = m * torch.ones(B, 1)
 
@@ -780,10 +780,10 @@ def validate_dcp_cr(config, val_loader, val_dataset, model, output_dir, writer_d
             model_name = config.MODEL.NAME
 
             _print_name_value(name_values, 'total:{}'.format(model_name), log=log)
-            _print_name_value(name_values_mode0, 'occer:{}'.format(model_name), log=log)
-            _print_name_value(name_values_mode1, 'occed:{}'.format(model_name), log=log)
-            _print_name_value(name_values_mode2, 'occed:{}'.format(model_name), log=log)
-            _print_name_value(name_values_mode3, 'occed:{}'.format(model_name), log=log)
+            _print_name_value(name_values_mode0, 'up:{}'.format(model_name), log=log)
+            _print_name_value(name_values_mode1, 'down:{}'.format(model_name), log=log)
+            # _print_name_value(name_values_mode2, 'ru:{}'.format(model_name), log=log)
+            # _print_name_value(name_values_mode3, 'rd:{}'.format(model_name), log=log)
 
         if writer_dict and config.LOG:
             writer = writer_dict['writer']
