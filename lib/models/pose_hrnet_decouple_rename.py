@@ -509,10 +509,10 @@ class MaskRCNNConvUpsampleHead(nn.Module):
         super(MaskRCNNConvUpsampleHead, self).__init__()
 
         # fmt: off
-        conv_dims         = cfg.MODEL.DECOUPLE['CONV_DIM']
-        self.norm         = cfg.MODEL.DECOUPLE['NORM']
-        num_conv          = cfg.MODEL.DECOUPLE['NUM_CONV']
-        head_channels    = cfg.MODEL.DECOUPLE['HEAD_CHANNELS']
+        conv_dims         = cfg.MODEL.HEAD['CONV_DIM']
+        self.norm         = cfg.MODEL.HEAD['NORM']
+        num_conv          = cfg.MODEL.HEAD['NUM_CONV']
+        head_channels    = cfg.MODEL.HEAD['HEAD_CHANNELS']
         # fmt: on
 
         self.conv_norm_relus = []

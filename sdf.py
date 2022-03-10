@@ -4,7 +4,7 @@ import json
 js_file = '/home/disk/weixing/datasets/crowdpose/json/crowdpose_train.json'
 js_test = json.load(open(js_file, 'r'))
 
-from demo_gcn import draw_pose
+from inference import draw_pose
 
 img_path = '/home/disk/weixing/datasets/crowdpose/images/100486.jpg'
 import cv2

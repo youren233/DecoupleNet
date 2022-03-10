@@ -497,8 +497,8 @@ def train_dcp(config, train_loader, model, criterion, optimizer, epoch,
     pose_lossAMer = AverageMeter()
     OCC_WEIGHT: 1
     OCCEE_WEIGHT: 1
-    occ_weight = config['MODEL']['DECOUPLE']['OCC_WEIGHT']
-    occee_weight = config['MODEL']['DECOUPLE']['OCCEE_WEIGHT']
+    occ_weight = config['MODEL']['HEAD']['OCC_WEIGHT']
+    occee_weight = config['MODEL']['HEAD']['OCCEE_WEIGHT']
 
     # switch to train mode
     model.train()
@@ -565,7 +565,7 @@ def train_dcp(config, train_loader, model, criterion, optimizer, epoch,
 def train_dcp_cnn(config, train_loader, model, criterion, optimizer, writer_dict):
     accAMer = AverageMeter()
     pose_lossAMer = AverageMeter()
-    cu_weight, cd_weight, ru_weight, rd_weight = config['MODEL']['DECOUPLE']['OUT_WEIGHT']
+    cu_weight, cd_weight, ru_weight, rd_weight = config['MODEL']['HEAD']['OUT_WEIGHT']
 
     # switch to train mode
     model.train()
@@ -660,10 +660,10 @@ def train_dcp_cr_ocks(config, train_loader, model, criterion, ref_criterion, opt
         target_weight_oced = target_weight_oced.cuda(non_blocking=True)
 
         loss_cu = criterion(cu, target_oc, target_weight_oc)
-        loss_ru = ref_criterion(ru, target_oc, target_oced, target_weight_oc, meta_oc)
+        loss_ru = ref_criterion(ru, target_oc, target_weight_oc)
 
         loss_cd = criterion(cd, target_oced, target_weight_oced)
-        loss_rd = ref_criterion(rd, target_oced, target_oc, target_weight_oced, meta_oced)
+        loss_rd = ref_criterion(rd, target_oced, target_weight_oced)
 
         pose_loss = loss_cu*cu_weight + loss_ru*ru_weight + loss_cd*cd_weight + loss_rd*rd_weight
         # loss = pose_loss + 0.1*diversity_loss
@@ -840,7 +840,7 @@ def train_dcp_naive_ocks(config, train_loader, model, criterion, optimizer, writ
 
     accAMer = AverageMeter()
     pose_lossAMer = AverageMeter()
-    _, _, ru_weight, rd_weight = config['MODEL']['DECOUPLE']['OUT_WEIGHT']
+    _, _, ru_weight, rd_weight = config['MODEL']['HEAD']['OUT_WEIGHT']
 
     # switch to train mode
     model.train()

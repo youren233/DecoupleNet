@@ -45,7 +45,7 @@ DESCRIPTION: 'pose_hrnet_decouple_cnn, coarse and refine'
 MODEL:
   INIT_WEIGHTS: true
   NAME: pose_hrnet_decouple_cnn
-  DECOUPLE:
+  HEAD:
     HIDDEN_CHANNELS: 64
     COA_NUM_BLOCKS: 6
     REF_NUM_BLOCKS: 6

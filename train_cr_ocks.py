@@ -31,6 +31,7 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 from tensorboardX import SummaryWriter
 from lib.core.loss import JointsOCKSMSELoss
+from lib.core.loss import JointsOHKMMSELoss
 
 import _init_paths
 from lib.config import cfg
@@ -157,7 +158,7 @@ def main():
      # ------------------------------------------
     # define loss function (criterion) and optimizer
     criterion = JointsMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda()
-    ref_criterion = JointsOCKSMSELoss(config=cfg).cuda()
+    ref_criterion = JointsOHKMMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda() # JointsOCKSMSELoss(config=cfg).cuda()
 
     # Data loading code
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])

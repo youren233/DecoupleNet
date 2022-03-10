@@ -496,9 +496,9 @@ class CoarseRefineDecouple(nn.Module):
 
     def __init__(self, cfg, in_channels, is_train=True):
         super(CoarseRefineDecouple, self).__init__()
-        hidden_channels = cfg.MODEL.DECOUPLE['HIDDEN_CHANNELS']
-        coarse_num_blocks = cfg.MODEL.DECOUPLE['COA_NUM_BLOCKS']
-        refine_num_blocks = cfg.MODEL.DECOUPLE['REF_NUM_BLOCKS']
+        hidden_channels = cfg.MODEL.HEAD['HIDDEN_CHANNELS']
+        coarse_num_blocks = cfg.MODEL.HEAD['COA_NUM_BLOCKS']
+        refine_num_blocks = cfg.MODEL.HEAD['REF_NUM_BLOCKS']
         num_joints = cfg['MODEL']['NUM_JOINTS']
         self.is_train = is_train
         # ---------------------- up -------------------

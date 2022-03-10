@@ -45,7 +45,7 @@ DESCRIPTION: 'pose_hrnet_decouple, just double head + 1 residual'
 MODEL:
   INIT_WEIGHTS: true
   NAME: pose_hrnet_decouple
-  DECOUPLE:
+  HEAD:
     HEAD_CHANNELS: 32
     CONV_DIM: 32
     NORM: ''
