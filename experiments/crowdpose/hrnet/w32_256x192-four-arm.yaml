@@ -44,11 +44,11 @@ DEBUG:
 DESCRIPTION: 'pose_hrnet_decouple_interaction, just coarse'
 MODEL:
   INIT_WEIGHTS: true
-  NAME: pose_hrnet_decouple_ia
+  NAME: pose_hrnet_four_arm
   HEAD:
     HIDDEN_CHANNELS: 32
-    COA_NUM_BLOCKS: 2
-    REF_NUM_BLOCKS: 2
+    COA_NUM_BLOCKS: 4
+    REF_NUM_BLOCKS: 4
     OUT_WEIGHT:
       - 0.5
       - 0.5

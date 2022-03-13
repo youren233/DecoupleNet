@@ -36,3 +36,4 @@ import lib.models.pose_hrnet_decouple_stupid
 import lib.models.pose_hrnet_decouple_ia
 import lib.models.pose_hrnet_dcp_skt
 import lib.models.pose_hrnet_decomp_align
+import lib.models.pose_hrnet_four_arm
