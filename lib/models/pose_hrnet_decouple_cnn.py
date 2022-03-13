@@ -579,13 +579,13 @@ class CoarseRefineDecouple(nn.Module):
         # transition
         x = torch.cat([coarse_out_up, coarse_out_down, x_residual], 1)
         x = self.transition_refine(x)
+        x_down = x
 
         # --------------------------- refine ------------------------
         # up
-        x_feat_r_up = self.refine_feature_fuse_up(x)
-        refine_out_up = self.refine_predictor_up(x_feat_r_up)
+        x = self.refine_feature_fuse_up(x)
+        refine_out_up = self.refine_predictor_up(x)
         # down
-        x_down = x_feat_r_up + x
         x_down = self.refine_feature_fuse_down(x_down)
         refine_out_down = self.refine_predictor_down(x_down)
 
