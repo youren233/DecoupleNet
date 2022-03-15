@@ -53,7 +53,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-decouple-stupid.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-two-arm.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -83,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_1blocks_justTwoHeads')
+                        default='Train_two_2blocks_arm')
 
 
     args = parser.parse_args()

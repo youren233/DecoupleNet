@@ -1,6 +1,6 @@
 AUTO_RESUME: true
 ENV: 0
-GPUS: (0,)
+GPUS: (1,)
 WORKERS: 16
 PRINT_FREQ: 20
 EPOCH_EVAL_FREQ: 30
@@ -44,11 +44,11 @@ DEBUG:
 DESCRIPTION: 'pose_hrnet_decouple_interaction, just coarse'
 MODEL:
   INIT_WEIGHTS: true
-  NAME: pose_hrnet_decouple_ia
+  NAME: pose_hrnet_twohead
   HEAD:
     HIDDEN_CHANNELS: 32
-    COA_NUM_BLOCKS: 2
-    REF_NUM_BLOCKS: 2
+    COA_NUM_BLOCKS: 1
+    REF_NUM_BLOCKS: 1
     OUT_WEIGHT:
       - 0.5
       - 0.5

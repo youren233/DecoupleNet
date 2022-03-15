@@ -227,7 +227,7 @@ def main():
         begin_epoch = checkpoint['epoch']
         best_perf = checkpoint['perf']
         last_epoch = begin_epoch - 1
-        model.load_state_dict(checkpoint['state_dict'])
+        model.module.load_state_dict(checkpoint['state_dict'])
 
         optimizer.load_state_dict(checkpoint['optimizer'])
         logger.info("=> loaded checkpoint '{}' (epoch {})".format(

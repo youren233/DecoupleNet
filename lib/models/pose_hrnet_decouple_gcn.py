@@ -589,6 +589,7 @@ class MaskRCNNConvUpsampleHead(nn.Module):
         B, C, H, W = x.size() # B, C, 64, 48
         x_ori = x.clone()
 
+        # non-local opt
         for cnt, layer in enumerate(self.boundary_conv_norm_relus):
             x = layer(x) # [16, 256, 64, 48]s
 
