@@ -302,6 +302,53 @@ class JointsOCKSMSELoss(nn.Module):
 
         return ohkm_loss + self.ocks(loss, output, target, another_target, meta)
 
+# ----------------------------------------------------------------------
+class JointsTripletMSELoss(nn.Module):
+    def __init__(self, use_target_weight):
+        super(JointsTripletMSELoss, self).__init__()
+        self.criterion = nn.MSELoss(reduction='none')
+        self.use_target_weight = use_target_weight
+
+    def tripletLoss(self, loss, another_loss):
+        triple_loss = loss - another_loss
+        triple_loss[triple_loss < 0] = 0
+        return torch.mean(triple_loss, dim=1)
+
+    def forward(self, output, target, target_weight, another_target):
+        batch_size = output.size(0)
+        num_joints = output.size(1)
+        heatmaps_pred = output.reshape((batch_size, num_joints, -1)).split(1, 1)
+        heatmaps_gt = target.reshape((batch_size, num_joints, -1)).split(1, 1)
+        another_heatmaps_gt = another_target.reshape((batch_size, num_joints, -1)).split(1, 1)
+
+        loss = []
+        another_loss = []
+        for idx in range(num_joints):
+            heatmap_pred = heatmaps_pred[idx].squeeze()
+            heatmap_gt = heatmaps_gt[idx].squeeze()
+            another_heatmap_gt = another_heatmaps_gt[idx].squeeze()
+            if self.use_target_weight:
+                loss.append(0.5 * self.criterion(
+                    heatmap_pred.mul(target_weight[:, idx]),
+                    heatmap_gt.mul(target_weight[:, idx])
+                ))
+                another_loss.append(0.5 * self.criterion(
+                    heatmap_pred.mul(target_weight[:, idx]),
+                    another_heatmap_gt.mul(target_weight[:, idx])
+                ))
+            else:
+                loss.append(0.5 * self.criterion(heatmap_pred, heatmap_gt))
+                another_loss.append(0.5 * self.criterion(heatmap_pred, another_heatmap_gt))
+
+        loss = [l.mean(dim=1).unsqueeze(dim=1) for l in loss]
+        # shape: (B, joints num) (32, 14)
+        loss = torch.cat(loss, dim=1)
+
+        another_loss = [l.mean(dim=1).unsqueeze(dim=1) for l in another_loss]
+        # shape: (B, joints num) (32, 14)
+        another_loss = torch.cat(another_loss, dim=1)
+        triplet_loss = torch.mean(loss, dim=1) + self.tripletLoss(loss, another_loss)
+        return torch.mean(triplet_loss)
 
 class ProMaskLoss(torch.autograd.Function):
 
@@ -333,12 +380,14 @@ if __name__ == "__main__":
     import torch
 
     output = torch.full([16, 14, 64, 48], 0.1) # B, joints num, 64, 48
-    another_pose = torch.full([16, 14, 64, 48], 0.1) # B, joints num, 64, 48
-    target = torch.full([16, 14, 64, 48], 0.2) # max: 0.2191; min: -0.1087
-    target_weight = torch.full([14], 10)
+
+    target = torch.rand([16, 14, 64, 48]) # max: 0.2191; min: -0.1087
+    another_target = torch.rand([16, 14, 64, 48]) # B, joints num, 64, 48
+    target_weight = torch.full([16, 14, 1], 10)
 
     # criterion = JointsOCKSMSELoss(False)
-    criterion = JointsOHKMMSELoss(False)
+    # criterion = JointsOHKMMSELoss(False)
+    criterion = JointsTripletMSELoss(True)
 
-    loss = criterion(output, target, target_weight) #, another_pose
+    loss = criterion(output, target, target_weight, another_target) #, another_pose
     print("loss: {}\nshape:{}".format(loss, loss.shape))

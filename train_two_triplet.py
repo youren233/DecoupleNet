@@ -34,8 +34,8 @@ from tensorboardX import SummaryWriter
 import _init_paths
 from lib.config import cfg
 from lib.config import update_config
-from lib.core.loss import JointsOCKSMSELoss
-from lib.core.train import train_dcp_naive_ocks
+from lib.core.loss import JointsTripletMSELoss
+from lib.core.train import train_two_tripletLoss
 from lib.core.validate import validate_dcp_naive
 
 import lib.dataset
@@ -53,7 +53,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-decouple-stpd-ocks.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-two-triplet.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -83,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_Dcp_stupid2-ocks')
+                        default='Train_two_2_32_ia_triplet')
 
 
     args = parser.parse_args()
@@ -155,7 +155,7 @@ def main():
 
      # ------------------------------------------
     # define loss function (criterion) and optimizer
-    criterion = JointsOCKSMSELoss(config=cfg).cuda()
+    criterion = JointsTripletMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda()
 
     # Data loading code
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -242,7 +242,7 @@ def main():
         if cfg.LOG:
             logger.info('====== training: lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
-        train_dcp_naive_ocks(cfg, train_loader, model, criterion, optimizer, writer_dict)
+        train_two_tripletLoss(cfg, train_loader, model, criterion, optimizer, writer_dict)
 
         lr_scheduler.step()
 
