@@ -54,7 +54,7 @@ MODEL:
       - 0.5
       - 1
       - 1
-  NUM_JOINTS: 14
+  NUM_JOINTS: 17
   TARGET_TYPE: gaussian
   IMAGE_SIZE:
   - 192
@@ -137,25 +137,24 @@ LOSS:
   USE_TARGET_WEIGHT: true
 DATASET:
   COLOR_RGB: true
-  DATASET: 'crowdpose'
+  DATASET: 'coco'
   DATA_FORMAT: jpg
   FLIP: true
   NUM_JOINTS_HALF_BODY: 8
   PROB_HALF_BODY: 0.3
   ROT_FACTOR: 45
   SCALE_FACTOR: 0.35
-  TRAIN_SET: 'train'
-  TRAIN_DATASET: 'crowdpose_lambda'
-  TRAIN_IMAGE_DIR: 'crowdpose/images'
-  TRAIN_ANNOTATION_FILE: 'crowdpose/json/crowdpose_train.json'
-  TRAIN_DATASET_TYPE: 'crowdpose_lambda'
+  TRAIN_SET: 'train2017'
+  TRAIN_DATASET: 'coco_lambda'
+  TRAIN_IMAGE_DIR: 'coco/train2017'
+  TRAIN_ANNOTATION_FILE: 'coco/annotations/person_keypoints_train2017.json'
+  TRAIN_DATASET_TYPE: 'coco_lambda'
 
-  TEST_SET: 'val'
-  TEST_DATASET: 'crowdpose'
-  TEST_IMAGE_DIR: 'crowdpose/images'
-  TEST_ANNOTATION_FILE: 'crowdpose/json/crowdpose_val.json'
-  TEST_DATASET_TYPE: 'crowdpose'
-  SYNTHETIC_DATASET: crowdpose_lambda
+  TEST_SET: 'val2017'
+  TEST_DATASET: 'coco'
+  TEST_IMAGE_DIR: 'coco/val2017'
+  TEST_ANNOTATION_FILE: 'coco/annotations/person_keypoints_val2017.json'
+  TEST_DATASET_TYPE: 'coco'
 
 CUDNN:
   BENCHMARK: true

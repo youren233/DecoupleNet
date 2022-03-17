@@ -550,14 +550,12 @@ class CoarseRefineDecouple(nn.Module):
     def _make_extract_layer(self, num_basicBlock, in_channels, out_channels):
         # ablation: pure cnn
         layers = []
-        cbam_before = CBAMBlock(in_channels)
-        # layers.append(cbam_before)
 
         for i in range(num_basicBlock):
+            cbam_before = CBAMBlock(in_channels)
+            layers.append(cbam_before)
             layers.append(BasicBlock(in_channels, out_channels))
 
-        cbam_after = CBAMBlock(out_channels)
-        # layers.append(cbam_after)
         return nn.Sequential(*layers)
 
     def _make_fuse_layer(self, num_basicBlock, in_channels, out_channels):
@@ -575,7 +573,7 @@ class CoarseRefineDecouple(nn.Module):
 def get_pose_net(cfg, is_train, **kwargs):
     model = PoseHighResolutionNet(cfg, is_train=is_train, **kwargs)
 
-    print('==============> Got pose_hrnet_decouple_cnn-stupid')
+    print('==============> Got pose_hrnet_cnn two head')
     if is_train and cfg['MODEL']['INIT_WEIGHTS']:
         model.init_weights(cfg['MODEL']['PRETRAINED'])
 
