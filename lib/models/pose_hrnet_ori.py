@@ -13,7 +13,7 @@ import logging
 
 import torch
 import torch.nn as nn
-from lib.amzmodel.attention.CBAM import CBAMBlock
+
 
 BN_MOMENTUM = 0.1
 logger = logging.getLogger(__name__)
@@ -140,7 +140,7 @@ class HighResolutionModule(nn.Module):
                          stride=1):
         downsample = None
         if stride != 1 or \
-                self.num_inchannels[branch_index] != num_channels[branch_index] * block.expansion:
+           self.num_inchannels[branch_index] != num_channels[branch_index] * block.expansion:
             downsample = nn.Sequential(
                 nn.Conv2d(
                     self.num_inchannels[branch_index],
@@ -203,14 +203,14 @@ class HighResolutionModule(nn.Module):
                                 1, 1, 0, bias=False
                             ),
                             nn.BatchNorm2d(num_inchannels[i]),
-                            nn.Upsample(scale_factor=2 ** (j - i), mode='nearest')
+                            nn.Upsample(scale_factor=2**(j-i), mode='nearest')
                         )
                     )
                 elif j == i:
                     fuse_layer.append(None)
                 else:
                     conv3x3s = []
-                    for k in range(i - j):
+                    for k in range(i-j):
                         if k == i - j - 1:
                             num_outchannels_conv3x3 = num_inchannels[i]
                             conv3x3s.append(
@@ -273,7 +273,7 @@ blocks_dict = {
 
 class PoseHighResolutionNet(nn.Module):
 
-    def __init__(self, cfg, is_train, **kwargs):
+    def __init__(self, cfg, **kwargs):
         self.inplanes = 64
         extra = cfg['MODEL']['EXTRA']
         super(PoseHighResolutionNet, self).__init__()
@@ -320,7 +320,13 @@ class PoseHighResolutionNet(nn.Module):
         self.stage4, pre_stage_channels = self._make_stage(
             self.stage4_cfg, num_channels, multi_scale_output=False)
 
-        self.decouple_head = CoarseRefineDecouple(cfg, is_train=is_train, in_channels=pre_stage_channels[0])
+        self.final_layer = nn.Conv2d(
+            in_channels=pre_stage_channels[0],
+            out_channels=cfg['MODEL']['NUM_JOINTS'],
+            kernel_size=extra['FINAL_CONV_KERNEL'],
+            stride=1,
+            padding=1 if extra['FINAL_CONV_KERNEL'] == 3 else 0
+        )
 
         self.pretrained_layers = extra['PRETRAINED_LAYERS']
 
@@ -348,10 +354,10 @@ class PoseHighResolutionNet(nn.Module):
                     transition_layers.append(None)
             else:
                 conv3x3s = []
-                for j in range(i + 1 - num_branches_pre):
+                for j in range(i+1-num_branches_pre):
                     inchannels = num_channels_pre_layer[-1]
                     outchannels = num_channels_cur_layer[i] \
-                        if j == i - num_branches_pre else inchannels
+                        if j == i-num_branches_pre else inchannels
                     conv3x3s.append(
                         nn.Sequential(
                             nn.Conv2d(
@@ -426,7 +432,7 @@ class PoseHighResolutionNet(nn.Module):
         x = self.layer1(x)
 
         x_list = []
-        for i in range(self.stage2_cfg['NUM_BRANCHES']):
+        for i in range(self.stage2_cfg['NUM_BRANCHES']): # 处理上阶段结果：相同分辨率（stride1卷积）、上（线性插值）、下（stride2卷积）采样
             if self.transition1[i] is not None:
                 x_list.append(self.transition1[i](x))
             else:
@@ -449,9 +455,9 @@ class PoseHighResolutionNet(nn.Module):
                 x_list.append(y_list[i])
         y_list = self.stage4(x_list)
 
-        pose_dict = self.decouple_head(y_list[0])
+        x = self.final_layer(y_list[0])
 
-        return pose_dict
+        return x
 
     def init_weights(self, pretrained=''):
         logger.info('=> init weights from normal distribution')
@@ -472,12 +478,13 @@ class PoseHighResolutionNet(nn.Module):
                         nn.init.constant_(m.bias, 0)
 
         if os.path.isfile(pretrained):
-            pretrained_state_dict = torch.load(pretrained, map_location='cpu')
+            pretrained_state_dict = torch.load(pretrained)
             logger.info('=> loading pretrained model {}'.format(pretrained))
 
             need_init_state_dict = {}
             for name, m in pretrained_state_dict.items():
-                if name.split('.')[0] in self.pretrained_layers or self.pretrained_layers[0] is '*':
+                if name.split('.')[0] in self.pretrained_layers \
+                   or self.pretrained_layers[0] is '*':
                     need_init_state_dict[name] = m
             self.load_state_dict(need_init_state_dict, strict=False)
         elif pretrained:
@@ -485,97 +492,9 @@ class PoseHighResolutionNet(nn.Module):
             raise ValueError('{} is not exist!'.format(pretrained))
 
 
-import torch
-from torch import nn
-
-
-class CoarseRefineDecouple(nn.Module):
-
-    def __init__(self, cfg, in_channels, is_train=True):
-        super(CoarseRefineDecouple, self).__init__()
-        hidden_channels = cfg.MODEL.HEAD['HIDDEN_CHANNELS']
-        coarse_num_blocks = cfg.MODEL.HEAD['COA_NUM_BLOCKS']
-        refine_num_blocks = cfg.MODEL.HEAD['REF_NUM_BLOCKS']
-        num_joints = cfg['MODEL']['NUM_JOINTS']
-        self.is_train = is_train
-        # ---------------------- up -------------------
-        self.transition_coarse = nn.Sequential(
-            nn.Conv2d(
-                in_channels,
-                hidden_channels,
-                1, 1, bias=False
-            ),
-            nn.BatchNorm2d(hidden_channels),
-            nn.ReLU(inplace=True)
-        )
-        # coarse branch
-        # self.coarse_extract_up = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
-        self.coarse_predictor_up = nn.Conv2d(
-            in_channels=hidden_channels,
-            out_channels=num_joints,
-            kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
-            stride=1,
-            padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
-        )
-        # ---------------------- down -------------------
-        # coarse branch
-        # self.coarse_extract_down = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
-        self.coarse_predictor_down = nn.Conv2d(
-            in_channels=hidden_channels,
-            out_channels=num_joints,
-            kernel_size=cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'],
-            stride=1,
-            padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
-        )
-
-    def forward(self, x):
-        # transition
-        # x = self.transition_coarse(x)
-        # --------------------------- coarse ------------------------
-        # x_down = x.clone()
-        # up
-        # x = self.coarse_extract_up(x)
-        coarse_out_up = self.coarse_predictor_up(x)
-        # down
-        # x_down = self.coarse_extract_down(x_down)
-        coarse_out_down = self.coarse_predictor_down(x)
-
-        if not self.is_train:
-            return coarse_out_up
-        return {
-            'up': coarse_out_up,
-            'down':coarse_out_down,
-        }
-
-    def _make_extract_layer(self, num_basicBlock, in_channels, out_channels):
-        # ablation: pure cnn
-        layers = []
-        cbam_before = CBAMBlock(in_channels)
-        # layers.append(cbam_before)
-
-        for i in range(num_basicBlock):
-            layers.append(BasicBlock(in_channels, out_channels))
-
-        cbam_after = CBAMBlock(out_channels)
-        # layers.append(cbam_after)
-        return nn.Sequential(*layers)
-
-    def _make_fuse_layer(self, num_basicBlock, in_channels, out_channels):
-        layers = []
-        cbam_before = CBAMBlock(in_channels)
-        # layers.append(cbam_before)
-
-        for i in range(num_basicBlock):
-            layers.append(BasicBlock(in_channels, out_channels))
-
-        cbam_after = CBAMBlock(out_channels)
-        # layers.append(cbam_after)
-        return nn.Sequential(*layers)
-
 def get_pose_net(cfg, is_train, **kwargs):
-    model = PoseHighResolutionNet(cfg, is_train=is_train, **kwargs)
+    model = PoseHighResolutionNet(cfg, **kwargs)
 
-    print('==============> Got pose_hrnet + just two head')
     if is_train and cfg['MODEL']['INIT_WEIGHTS']:
         model.init_weights(cfg['MODEL']['PRETRAINED'])
 

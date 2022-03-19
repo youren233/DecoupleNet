@@ -817,8 +817,11 @@ def validate_dcp_naive(config, val_loader, val_dataset, model, output_dir, write
                      epoch=-1, lambda_vals=[0, 1], log=logger):
     accAMer = AverageMeter()
 
+    visualize_dir = os.path.join(output_dir, "visualize")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+    if not os.path.exists(visualize_dir):
+        os.makedirs(visualize_dir)
 
     # switch to evaluate mode
     model.eval()
@@ -914,14 +917,14 @@ def validate_dcp_naive(config, val_loader, val_dataset, model, output_dir, write
                     val_loader.set_description(msg)
 
                 # 可视化结果
-                if i % config.PRINT_FREQ == 0:
+                if config.DEBUG.DEBUG is True and i % config.PRINT_FREQ == 0:
                     save_size = min(8, B)
                     meta['pred_joints_vis'] = torch.ones_like(meta['joints_vis'])
 
-                    suffix = str(epoch) + str(i) + ['ru', 'rd'][m]
+                    prefix = str(i) + ['up', 'down'][m]
 
                     save_debug_images(config, input[:save_size, [2,1,0], :, :], meta, target[:save_size], (pred*4)[:save_size], output[:save_size],
-                                      output_dir, suffix)
+                                      visualize_dir, prefix)
         perf_indicator = 0.0
         if config.LOG:
             name_values, name_values_mode0, \

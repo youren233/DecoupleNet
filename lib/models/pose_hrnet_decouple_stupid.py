@@ -537,6 +537,7 @@ class CoarseRefineDecouple(nn.Module):
         x = self.coarse_extract_up(x)
         coarse_out_up = self.coarse_predictor_up(x)
         # down
+        # x_down = x_down + x
         x_down = self.coarse_extract_down(x_down)
         coarse_out_down = self.coarse_predictor_down(x_down)
 
@@ -552,8 +553,8 @@ class CoarseRefineDecouple(nn.Module):
         layers = []
 
         for i in range(num_basicBlock):
-            cbam_before = CBAMBlock(in_channels)
-            layers.append(cbam_before)
+            # cbam_before = CBAMBlock(in_channels)
+            # layers.append(cbam_before)
             layers.append(BasicBlock(in_channels, out_channels))
 
         return nn.Sequential(*layers)

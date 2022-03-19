@@ -211,13 +211,13 @@ def train_lambda_012(config, train_loader, model, criterion_lambda, criterion, o
             prefix = '{}_epoch_{:09d}_iter_{}_{}'.format(os.path.join(output_dir, 'train'), epoch, i, print_prefix)
             
             start_idx = 0; end_idx = start_idx + save_size
-            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_a, target_a[:save_size], (pred_a*4)[:save_size], output[start_idx:end_idx], prefix, suffix='a')
+            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_a, target_a[:save_size], (pred_a*4)[:save_size], output[start_idx:end_idx], prefix, prefix='a')
 
             start_idx = B; end_idx = start_idx + save_size
-            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_b, target_b[:save_size], (pred_b*4)[:save_size], output[start_idx:end_idx], prefix, suffix='b')
+            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_b, target_b[:save_size], (pred_b*4)[:save_size], output[start_idx:end_idx], prefix, prefix='b')
 
             start_idx = 2*B; end_idx = start_idx + save_size
-            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_c, target_c[:save_size], (pred_c*4)[:save_size], output[start_idx:end_idx], prefix, suffix='c')
+            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_c, target_c[:save_size], (pred_c*4)[:save_size], output[start_idx:end_idx], prefix, prefix='c')
 
 
     return
@@ -376,16 +376,16 @@ def train_lambda_0123(config, train_loader, model, criterion_lambda, criterion, 
             prefix = '{}_epoch_{:09d}_iter_{}_{}'.format(os.path.join(output_dir, 'train'), epoch, i, print_prefix)
             
             start_idx = 0; end_idx = start_idx + save_size
-            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_a, target_a[:save_size], (pred_a*4)[:save_size], output[start_idx:end_idx], prefix, suffix='a')
+            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_a, target_a[:save_size], (pred_a*4)[:save_size], output[start_idx:end_idx], prefix, prefix='a')
 
             start_idx = B; end_idx = start_idx + save_size
-            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_b, target_b[:save_size], (pred_b*4)[:save_size], output[start_idx:end_idx], prefix, suffix='b')
+            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_b, target_b[:save_size], (pred_b*4)[:save_size], output[start_idx:end_idx], prefix, prefix='b')
 
             start_idx = 2*B; end_idx = start_idx + save_size
-            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_c, target_c[:save_size], (pred_c*4)[:save_size], output[start_idx:end_idx], prefix, suffix='c')
+            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_c, target_c[:save_size], (pred_c*4)[:save_size], output[start_idx:end_idx], prefix, prefix='c')
 
             start_idx = 3*B; end_idx = start_idx + save_size
-            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_d, target_d[:save_size], (pred_d*4)[:save_size], output[start_idx:end_idx], prefix, suffix='d')
+            save_debug_images(config, input[:save_size, [2,1,0], :, :], meta_d, target_d[:save_size], (pred_d*4)[:save_size], output[start_idx:end_idx], prefix, prefix='d')
 
     return
 # --------------------------------------------------------------------------------

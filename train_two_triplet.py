@@ -53,7 +53,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/coco/hrnet/w32_256x192-two-triplet.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-two-triplet.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -83,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='TrainCOCO_two_2_32_ia_triplet')
+                        default='TrainCP_4att_arm_triplet')
 
 
     args = parser.parse_args()

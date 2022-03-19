@@ -28,10 +28,10 @@ from lib.config import cfg
 from lib.config import update_config
 from lib.core.loss import JointsLambdaMSELoss
 from lib.core.loss import JointsMSELoss
-from lib.core.validate import validate_lambda_quantitative
+from lib.core.validate import validate_dcp_naive
 from lib.core.validate import validate_lambda
 from lib.utils.utils import create_logger
-from lib.utils.utils import get_lambda_model_summary
+from lib.utils.utils import get_dcp_cnn_model_summary
 from lib.utils.utils import set_seed
 
 import lib.dataset
@@ -46,7 +46,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-xx.yaml',
+                        default='experiments/crowdpose/hrnet/test.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -73,7 +73,7 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='exp_test')
+                        default='train_two_2blocks_64channels')
 
     args = parser.parse_args()
     return args
@@ -98,7 +98,7 @@ def main():
     torch.cuda.set_device(device)
 
     model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(
-        cfg, is_train=False
+        cfg, is_train=True
     )
 
     writer_dict = {
@@ -110,15 +110,14 @@ def main():
     dump_input = torch.rand(
         (16, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0])
     )
-    dump_lambda = torch.rand(
-        (16, 2)
-    )
 
-    logger.info(get_lambda_model_summary(model, dump_input, dump_lambda))
+    logger.info(get_dcp_cnn_model_summary(model, dump_input))
 
-    if cfg.TEST.MODEL_FILE:
+    checkpoint_file = os.path.join(final_output_dir, cfg.TEST.MODEL_FILE)
+
+    if checkpoint_file:
         logger.info('=> loading model from {}'.format(cfg.TEST.MODEL_FILE))
-        model_object = torch.load(cfg.TEST.MODEL_FILE, map_location='cpu')
+        model_object = torch.load(checkpoint_file, map_location='cpu')
         if 'latest_state_dict' in model_object.keys():
             logger.info('=> loading from latest_state_dict at {}'.format(cfg.TEST.MODEL_FILE))
             model.load_state_dict(model_object['latest_state_dict'], strict=False)
@@ -141,11 +140,6 @@ def main():
     
     # ------------------------------------------------
 
-    # define loss function (criterion) and optimizer
-    criterion_lambda = JointsLambdaMSELoss(
-        use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT
-    ).cuda()
-    
     criterion = JointsMSELoss(
         use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT
     ).cuda()
@@ -172,13 +166,8 @@ def main():
     )
 
     # # # evaluate on validation set
-    validate_lambda_quantitative(cfg, valid_loader, valid_dataset, model, criterion,
-             os.path.join(final_output_dir, 'lambda:0,1'), tb_log_dir, writer_dict, print_prefix='lambda', lambda_vals=[0, 1])
-
-    # # # evaluate on validation set
-    # validate_lambda(cfg, valid_loader, valid_dataset, model, criterion_lambda, criterion,
-    #          final_output_dir, tb_log_dir, writer_dict, print_prefix='lambda')
-
+    validate_dcp_naive(cfg, valid_loader, valid_dataset, model,
+                       final_output_dir, writer_dict, log=logger)
 
     writer_dict['writer'].close()
 

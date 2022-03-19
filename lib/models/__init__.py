@@ -39,3 +39,4 @@ import lib.models.pose_hrnet_decomp_align
 import lib.models.pose_hrnet_four_arm
 import lib.models.pose_hrnet_twohead
 import lib.models.pose_cnn_two_arm
+import lib.models.pose_hrnet_ori

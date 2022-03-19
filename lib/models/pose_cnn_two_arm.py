@@ -507,11 +507,11 @@ class CoarseRefineDecouple(nn.Module):
             nn.ReLU(inplace=True)
         )
         # gate_channels, reduction_ratio=16
-        self.attentRectify_coarse = ARM(hidden_channels)
+        # self.attentRectify_coarse = ARM(hidden_channels)
 
         # ---------------------- coarse extract -----------------------
         self.coarse_extract_up = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
-        self.coarse_extract_down = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
+        self.coarse_extract_down = self._make_arm_layer(coarse_num_blocks, hidden_channels, hidden_channels)
 
         # ---------------------- coarse predictor -----------------------
         self.coarse_predictor_up = nn.Conv2d(
@@ -552,12 +552,11 @@ class CoarseRefineDecouple(nn.Module):
         layers = []
 
         for i in range(num_basicBlock):
-            layers.append(ARM(in_channels))
             layers.append(BasicBlock(in_channels, out_channels))
 
         return nn.Sequential(*layers)
 
-    def _make_fuse_layer(self, num_basicBlock, in_channels, out_channels):
+    def _make_arm_layer(self, num_basicBlock, in_channels, out_channels):
         layers = []
 
         for i in range(num_basicBlock):

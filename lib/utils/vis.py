@@ -331,37 +331,37 @@ def save_image(batch_image, file_name, nrow=8, padding=2):
     return
 
 def save_debug_images(config, input, meta, target, joints_pred, output,
-                      output_dir, suffix=''):
+                      output_dir, prefix=''):
     if not config.DEBUG.DEBUG:
         return
 
     if config.DEBUG.SAVE_BATCH_IMAGES_GT:
-        file_name = os.path.join(output_dir, 'gt_{}.jpg'.format(suffix))
+        file_name = os.path.join(output_dir, '{}_gt.jpg'.format(prefix))
         save_batch_image_with_joints(
             input, meta['joints'], meta['joints_vis'],
             file_name
         )
     if config.DEBUG.SAVE_BATCH_IMAGES_PRED:
-        file_name = os.path.join(output_dir, 'pred_{}.jpg'.format(suffix))
+        file_name = os.path.join(output_dir, '{}_pred.jpg'.format(prefix))
         if 'pred_joints_vis' in meta.keys():
             save_batch_image_with_joints(
                 input, joints_pred, meta['pred_joints_vis'],
                 file_name
             )
         else:
-            file_name = os.path.join(output_dir, 'pred_{}.jpg'.format(suffix))
+            file_name = os.path.join(output_dir, '{}_pred.jpg'.format(prefix))
             save_batch_image_with_joints(
                 input, joints_pred, meta['joints_vis'],
                 file_name
             )
     if config.DEBUG.SAVE_HEATMAPS_GT:
-        file_name = os.path.join(output_dir, 'gt_hm_{}.jpg'.format(suffix))
-        save_batch_heatmaps(
+        file_name = os.path.join(output_dir, '{}_gt_hm.jpg'.format(prefix))
+        save_batch_heatmaps_one(
             input, target, file_name
         )
     if config.DEBUG.SAVE_HEATMAPS_PRED:
-        file_name = os.path.join(output_dir, 'pred_hm_{}.jpg'.format(suffix))
-        save_batch_heatmaps(
+        file_name = os.path.join(output_dir, '{}_pred_hm.jpg'.format(prefix))
+        save_batch_heatmaps_one(
             input, output, file_name
         )
 

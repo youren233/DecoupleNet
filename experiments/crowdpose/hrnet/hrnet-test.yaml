@@ -1,8 +1,8 @@
 AUTO_RESUME: true
 ENV: 0
-GPUS: (0,)
+GPUS: (1,)
 WORKERS: 16
-PRINT_FREQ: 20
+PRINT_FREQ: 100
 EPOCH_EVAL_FREQ: 30
 
 TRAIN:
@@ -22,13 +22,13 @@ TRAIN:
   MOMENTUM: 0.9
   NESTEROV: false
 TEST:
-  BATCH_SIZE_PER_GPU: 64
+  BATCH_SIZE_PER_GPU: 12
   DECAY_THRE: 0.5
-  COCO_BBOX_FILE: 'coco/person_detection_results/COCO_val2017_detections_AP_H_56_person.json'
+  COCO_BBOX_FILE: 'crowdpose/json/det_for_crowd_test_0.1_0.5.json'
   BBOX_THRE: 1.0
   IMAGE_THRE: 0.0
   IN_VIS_THRE: 0.2
-  MODEL_FILE: 'checkpoint_209-4.pth'
+  MODEL_FILE: 'checkpoint_207.pth'
   NMS_THRE: 1.0
   OKS_THRE: 0.9
   USE_GT_BBOX: true
@@ -36,19 +36,19 @@ TEST:
   POST_PROCESS: true
   SHIFT_HEATMAP: true
 DEBUG:
-  DEBUG: false
+  DEBUG: true
   SAVE_BATCH_IMAGES_GT: true
   SAVE_BATCH_IMAGES_PRED: true
-  SAVE_HEATMAPS_GT: false
-  SAVE_HEATMAPS_PRED: false
-DESCRIPTION: 'pose_hrnet_decouple_interaction, just coarse'
+  SAVE_HEATMAPS_GT: true
+  SAVE_HEATMAPS_PRED: true
+DESCRIPTION: 'pose_hrnet two, just coarse'
 MODEL:
   INIT_WEIGHTS: true
-  NAME: pose_cnn_two_arm
+  NAME: pose_hrnet_ori
   HEAD:
-    HIDDEN_CHANNELS: 32
-    COA_NUM_BLOCKS: 4
-    REF_NUM_BLOCKS: 4
+    HIDDEN_CHANNELS: 64
+    COA_NUM_BLOCKS: 2
+    REF_NUM_BLOCKS: 2
     OUT_WEIGHT:
       - 0.5
       - 0.5
@@ -150,10 +150,10 @@ DATASET:
   TRAIN_ANNOTATION_FILE: 'crowdpose/json/crowdpose_train.json'
   TRAIN_DATASET_TYPE: 'crowdpose_lambda'
 
-  TEST_SET: 'val'
+  TEST_SET: 'test'
   TEST_DATASET: 'crowdpose'
   TEST_IMAGE_DIR: 'crowdpose/images'
-  TEST_ANNOTATION_FILE: 'crowdpose/json/crowdpose_val.json'
+  TEST_ANNOTATION_FILE: 'crowdpose/json/crowdpose_test.json'
   TEST_DATASET_TYPE: 'crowdpose'
   SYNTHETIC_DATASET: crowdpose_lambda
 
