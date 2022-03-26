@@ -118,12 +118,15 @@ def main():
     box_model.to(CTX)
     box_model.eval()
 
-    pose_model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(
-        cfg, is_train=False
-    )
+    # pose_model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(
+    #     cfg, is_train=False
+    # )
+    pose_model = lib.models.pose_hrnet_decouple_stupid.get_pose_net(cfg, is_train=True)
 
     # 模型加载。模型路径手动写
+    # model_file = 'output/Two_8_cnn_arm_mse_triplet_w32_256x192-two-arm_test/checkpoint_208.pth'
     model_file = 'output/train_two_2blocks_64channels_test/checkpoint_207.pth'
+    # model_file = 'output/train-two_2blocks_64channels_att_test/checkpoint_209.pth'
     # model_file = os.path.join(ckpt_dir, cfg.TEST.MODEL_FILE)
     if cfg.TEST.MODEL_FILE:
         print('=> loading model from {}'.format(model_file))
@@ -227,13 +230,16 @@ def main():
             pred_boxes = get_person_detection_boxes(box_model, input, threshold=0.9)
 
             # pose estimation
+            no_box = True
             if len(pred_boxes) >= 1:
                 for i, box in enumerate(pred_boxes):
+                    if no_box and i >= 1:
+                        break
                     tmp_img = image_bgr.copy()
                     # draw_bbox(box, image_bgr)
                     center, scale = box_to_center_scale(box, cfg.MODEL.IMAGE_SIZE[0], cfg.MODEL.IMAGE_SIZE[1])
                     image_pose = image.copy() if cfg.DATASET.COLOR_RGB else image_bgr.copy()
-                    pose_preds = get_pose_estimation_prediction(pose_model, image_pose, center, scale)
+                    pose_preds = get_pose_estimation_prediction(pose_model, image_pose, center, scale, no_box=no_box)
                     if len(pose_preds)>=1:
                         for kpt in pose_preds:
                             draw_pose(kpt,image_bgr) # draw the poses
@@ -245,7 +251,7 @@ def main():
                 img = cv2.putText(image_bgr, 'fps: '+ "%.2f"%(fps), (25, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 2)
 
             # cv2.imshow('demo',image_bgr)
-            file_path = os.path.join('output', 'infer', 'pose_' + file_name)
+            file_path = os.path.join('output', 'infer', file_name)
             cv2.imwrite(file_path, image_bgr)
             # if cv2.waitKey(0) & 0XFF==ord('q'):
             #     cv2.destroyAllWindows()
@@ -270,6 +276,10 @@ def draw_pose(keypoints,img):
         x_b, y_b = keypoints[kpt_b][0],keypoints[kpt_b][1]
         cv2.circle(img, (int(x_a), int(y_a)), 4, sktColor, -1)
         cv2.circle(img, (int(x_b), int(y_b)), 4, sktColor, -1)
+
+        # cv2.putText(img, str(kpt_a), (int(x_a), int(y_a)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255))
+        # cv2.putText(img, str(kpt_b), (int(x_b), int(y_b)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255))
+
         if x_a > 0 and y_a > 0 and x_b > 0 and y_b > 0:
             cv2.line(img, (int(x_a), int(y_a)), (int(x_b), int(y_b)), sktColor, 4, lineType=cv2.LINE_AA)
 
@@ -304,16 +314,19 @@ def get_person_detection_boxes(model, img, threshold=0.5):
     return person_boxes
 
 
-def get_pose_estimation_prediction(pose_model, image, center, scale):
+def get_pose_estimation_prediction(pose_model, image, center, scale, no_box=False):
     rotation = 0
 
-    # pose estimation transformation
-    trans = get_affine_transform(center, scale, rotation, cfg.MODEL.IMAGE_SIZE)
-    model_input = cv2.warpAffine(
-        image,
-        trans,
-        (int(cfg.MODEL.IMAGE_SIZE[0]), int(cfg.MODEL.IMAGE_SIZE[1])),
-        flags=cv2.INTER_LINEAR)
+    if no_box:
+        model_input = cv2.resize(image, (int(cfg.MODEL.IMAGE_SIZE[0]), int(cfg.MODEL.IMAGE_SIZE[1])))
+    else:
+        # pose estimation transformation
+        trans = get_affine_transform(center, scale, rotation, cfg.MODEL.IMAGE_SIZE)
+        model_input = cv2.warpAffine(
+            image,
+            trans,
+            (int(cfg.MODEL.IMAGE_SIZE[0]), int(cfg.MODEL.IMAGE_SIZE[1])),
+            flags=cv2.INTER_LINEAR)
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -328,12 +341,26 @@ def get_pose_estimation_prediction(pose_model, image, center, scale):
     with torch.no_grad():
         # compute output heatmap
         output = pose_model(model_input)
-        preds, _ = get_final_preds(
-            cfg,
-            output.clone().cpu().numpy(),
-            np.asarray([center]),
-            np.asarray([scale]))
-
+        if isinstance(output, dict):
+            preds1, _ = get_final_preds(
+                cfg,
+                output['up'].clone().cpu().numpy(),
+                np.asarray([center]),
+                np.asarray([scale]))
+            preds2, _ = get_final_preds(
+                cfg,
+                output['down'].clone().cpu().numpy(),
+                np.asarray([center]),
+                np.asarray([scale]))
+            # preds1[0, 10, 0] = 12.0041275
+            # preds1[0, 10, 1] = 479.90295
+            preds = np.concatenate((preds1, preds2))
+        else:
+            preds, _ = get_final_preds(
+                cfg,
+                output.clone().cpu().numpy(),
+                np.asarray([center]),
+                np.asarray([scale]))
         return preds
 
 

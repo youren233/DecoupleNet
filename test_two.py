@@ -73,7 +73,7 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='train_two_2blocks_64channels')
+                        default='Two_8_cnn_arm_mse_triplet_w32_256x192-two-arm')
 
     args = parser.parse_args()
     return args

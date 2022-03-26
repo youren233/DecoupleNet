@@ -119,5 +119,12 @@ def main():
 # 数据集：[[16, 14], [14, 12], [17, 15], [15, 13], [12, 13], [6, 12], [7, 13], [6, 7], [6, 8], [7, 9], [8, 10], [9, 11]]
 # crowdpose = json.load(open("/home/disk/weixing/datasets/crowdpose/json/crowdpose_test.json", 'r'))
 
+# with open(annotation_file, 'r') as f:
+#     dataset = json.load(f)
+# if 'images' in dataset:
+#     for img in dataset['images']:
+#         img["id"] = img.pop("image_id")
+#         # imgs[img['id']] = img
+
 if __name__ == '__main__':
     main()

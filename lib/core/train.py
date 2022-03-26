@@ -834,6 +834,120 @@ def train_dcp_naive(config, train_loader, model, criterion, optimizer, writer_di
     return
 # dcp-naive------------
 
+# one------------
+def train_one(config, train_loader, model, criterion, optimizer, writer_dict):
+    accAMer = AverageMeter()
+    pose_lossAMer = AverageMeter()
+
+    # switch to train mode
+    model.train()
+
+    train_loader = tqdm(train_loader)
+
+    # end = time.time()
+    for i, (input, target_oc, target_weight_oc, meta_oc) in enumerate(train_loader):
+        # data_time.update(time.time() - end)
+
+        input = input.cuda()
+        pose = model(input)
+        # up_pose = pose_dict['up']
+        # down_pose = pose_dict['down']
+
+        target_oc = target_oc.cuda(non_blocking=True)
+        target_weight_oc = target_weight_oc.cuda(non_blocking=True)
+
+        # loss_up_pose = criterion(up_pose, target_oc, target_weight_oc)
+        # loss_down_pose = criterion(down_pose, target_oced, target_weight_oced)
+        pose_loss = criterion(pose, target_oc, target_weight_oc)
+
+        # pose_loss = loss_up_pose*ru_weight + loss_down_pose*rd_weight
+        loss = pose_loss
+
+        # compute gradient and do update step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # measure accuracy and record loss
+        pose_lossAMer.update(pose_loss.item(), input.size(0))
+        _, acc_up, cnt_up, pred_a = accuracy(pose.detach().cpu().numpy(), target_oc.detach().cpu().numpy())
+        accAMer.update(acc_up, cnt_up)
+        # measure elapsed time
+
+        if config.LOG:
+            msg = 'Loss:{loss:.5f} Acc:{acc:.5f}'.format(loss=pose_lossAMer.val, acc=accAMer.val)
+            train_loader.set_description(msg)
+
+        if i % config.PRINT_FREQ == 0 and config.LOG:
+            writer = writer_dict['writer']
+            global_steps = writer_dict['train_global_steps']
+            writer.add_scalar('train_loss', pose_lossAMer.val, global_steps)
+            writer.add_scalar('train_acc', accAMer.val, global_steps)
+            writer_dict['train_global_steps'] = global_steps + 1
+
+    train_loader.close()
+    return
+# one------------
+
+# dcp-naive------------
+def train_dcp_up_down_loss(config, train_loader, model, triplet_criterion, mse_criterion, optimizer, writer_dict):
+    accAMer = AverageMeter()
+    pose_lossAMer = AverageMeter()
+    _, _, ru_weight, rd_weight = config['MODEL']['HEAD']['OUT_WEIGHT']
+
+    # switch to train mode
+    model.train()
+
+    train_loader = tqdm(train_loader)
+
+    # end = time.time()
+    for i, (input, target_oc, target_weight_oc, meta_oc, target_oced, target_weight_oced, meta_oced) in enumerate(train_loader):
+        # data_time.update(time.time() - end)
+
+        input = input.cuda()
+        pose_dict = model(input)
+        up_pose = pose_dict['up']
+        down_pose = pose_dict['down']
+
+        target_oc = target_oc.cuda(non_blocking=True)
+        target_weight_oc = target_weight_oc.cuda(non_blocking=True)
+        target_oced = target_oced.cuda(non_blocking=True)
+        target_weight_oced = target_weight_oced.cuda(non_blocking=True)
+
+        loss_up_pose = triplet_criterion(up_pose, target_oc, target_weight_oc, target_oced)
+        loss_down_pose = mse_criterion(down_pose, target_oced, target_weight_oced)
+
+        pose_loss = loss_up_pose*ru_weight + loss_down_pose*rd_weight
+        loss = pose_loss
+
+        # compute gradient and do update step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # measure accuracy and record loss
+        pose_lossAMer.update(pose_loss.item(), input.size(0))
+        _, acc_up, cnt_up, pred_a = accuracy(up_pose.detach().cpu().numpy(), target_oc.detach().cpu().numpy())
+        _, acc_down, cnt_down, pred_b = accuracy(down_pose.detach().cpu().numpy(), target_oced.detach().cpu().numpy())
+        accAMer.update(acc_up, cnt_up)
+        accAMer.update(acc_down, cnt_down)
+        # measure elapsed time
+
+        if config.LOG:
+            msg = 'Loss:{loss:.5f} Acc:{acc:.5f}'.format(loss=pose_lossAMer.val, acc=accAMer.val)
+            train_loader.set_description(msg)
+
+        if i % config.PRINT_FREQ == 0 and config.LOG:
+            writer = writer_dict['writer']
+            global_steps = writer_dict['train_global_steps']
+            writer.add_scalar('train_loss', pose_lossAMer.val, global_steps)
+            writer.add_scalar('train_acc', accAMer.val, global_steps)
+            writer_dict['train_global_steps'] = global_steps + 1
+
+    train_loader.close()
+    return
+# dcp-naive------------
+
 # dcp-naive------------
 def train_dcp_naive_ocks(config, train_loader, model, criterion, optimizer, writer_dict):
     print("=====> ShortCut(confused) Count: {}".format(criterion.confusedCount))

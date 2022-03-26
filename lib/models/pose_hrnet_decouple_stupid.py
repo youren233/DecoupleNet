@@ -553,22 +553,18 @@ class CoarseRefineDecouple(nn.Module):
         layers = []
 
         for i in range(num_basicBlock):
-            # cbam_before = CBAMBlock(in_channels)
-            # layers.append(cbam_before)
+            layers.append(CBAMBlock(in_channels))
             layers.append(BasicBlock(in_channels, out_channels))
 
         return nn.Sequential(*layers)
 
     def _make_fuse_layer(self, num_basicBlock, in_channels, out_channels):
         layers = []
-        cbam_before = CBAMBlock(in_channels)
-        # layers.append(cbam_before)
 
         for i in range(num_basicBlock):
+            layers.append(CBAMBlock(in_channels))
             layers.append(BasicBlock(in_channels, out_channels))
 
-        cbam_after = CBAMBlock(out_channels)
-        # layers.append(cbam_after)
         return nn.Sequential(*layers)
 
 def get_pose_net(cfg, is_train, **kwargs):

@@ -635,6 +635,135 @@ def validate_dcp_cnn(config, val_loader, val_dataset, model, output_dir, writer_
     return perf_indicator
 # dcp-cnn
 
+# one
+def validate_one(config, val_loader, val_dataset, model, output_dir, writer_dict=None,
+                     epoch=-1, log=logger):
+    accAMer = AverageMeter()
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # switch to evaluate mode
+    model.eval()
+
+    num_outputs = len(val_dataset)
+    all_preds = np.zeros(
+        (num_outputs, config.MODEL.NUM_JOINTS, 3),
+        dtype=np.float32
+    )
+    all_boxes = np.zeros((num_outputs, 6+1)) ## update to add annotation ids
+    image_path = []
+    filenames = []
+    imgnums = []
+    global_idx = 0
+    with torch.no_grad():
+        val_loader = tqdm(val_loader)
+        for i, (input, target, target_weight, meta) in enumerate(val_loader):
+
+            B, C, H, W = input.shape
+            # get output
+            input = input.cuda()
+            pose = model(input)
+
+            if config.TEST.FLIP_TEST:
+                input_flipped = input.flip(3)
+                flipped_pose = model(input_flipped)
+                # occ
+                flipped_pose = flip_back(flipped_pose.cpu().numpy(), val_dataset.flip_pairs)
+                flipped_pose = torch.from_numpy(flipped_pose.copy()).cuda()
+
+                # feature is not aligned, shift flipped heatmap for higher accuracy
+                if config.TEST.SHIFT_HEATMAP:
+                    flipped_pose[:, :, :, 1:] = flipped_pose.clone()[:, :, :, 0:-1]
+                pose = (pose + flipped_pose) * 0.5
+
+            # b x [0, 1], b x [1, 0]
+            target = target.cuda(non_blocking=True)
+            target_weight = target_weight.cuda(non_blocking=True)
+
+            num_images = input.size(0)
+            # measure accuracy and record loss
+            _, avg_acc, cnt, pred = accuracy(pose.cpu().numpy(),
+                                             target.cpu().numpy())
+            accAMer.update(avg_acc, cnt)
+
+            # measure elapsed time
+            # batch_time.update(time.time() - end)
+            # end = time.time()
+            c = meta['center'].numpy()
+            s = meta['scale'].numpy()
+            # todo 被遮挡者结果权重衰减？
+            score = meta['score'].numpy()
+
+            annotation_id = meta['annotation_id'].numpy()
+
+            preds, maxvals = get_final_preds(
+                config, pose.clone().cpu().numpy(), c, s)
+
+            all_preds[global_idx:global_idx + num_images, :, 0:2] = preds[:, :, 0:2]
+            all_preds[global_idx:global_idx + num_images, :, 2:3] = maxvals
+            # double check this all_boxes parts
+            all_boxes[global_idx:global_idx + num_images, 0:2] = c[:, 0:2]
+            all_boxes[global_idx:global_idx + num_images, 2:4] = s[:, 0:2]
+            all_boxes[global_idx:global_idx + num_images, 4] = np.prod(s*200, 1)
+            all_boxes[global_idx:global_idx + num_images, 5] = score
+            all_boxes[global_idx:global_idx + num_images, 6] = annotation_id
+
+            image_path.extend(meta['image'])
+
+            global_idx += num_images
+
+            if config.LOG:
+                msg = 'Accuracy {acc.val:.8f}'.format(acc=accAMer)
+                val_loader.set_description(msg)
+
+            # 可视化结果
+            # if i % config.PRINT_FREQ == 0:
+            #     save_size = min(8, B)
+            #     meta['pred_joints_vis'] = torch.ones_like(meta['joints_vis'])
+            #
+            #     # suffix = str(epoch) + '_' + str(i) + ['_ru', '_rd'][m]
+            #
+            #     save_debug_images(config, input[:save_size, [2,1,0], :, :], meta, target[:save_size], (pred*4)[:save_size], output[:save_size],
+            #                           output_dir, suffix)
+        perf_indicator = 0.0
+        if config.LOG:
+            name_values, perf_indicator = val_dataset.evaluate(
+                config, all_preds, output_dir, all_boxes, image_path, epoch,
+                filenames, imgnums
+            )
+
+            model_name = config.MODEL.NAME
+
+            _print_name_value(name_values, 'total:{}'.format(model_name), log=log)
+
+        if writer_dict and config.LOG:
+            writer = writer_dict['writer']
+            global_steps = writer_dict['valid_global_steps']
+            writer.add_scalar(
+                'valid_acc',
+                accAMer.avg,
+                global_steps
+            )
+            if isinstance(name_values, list):
+                for name_value in name_values:
+                    writer.add_scalars(
+                        'valid',
+                        dict(name_value),
+                        global_steps
+                    )
+            else:
+                writer.add_scalars(
+                    'valid',
+                    dict(name_values),
+                    global_steps
+                )
+            writer_dict['valid_global_steps'] = global_steps + 1
+
+    val_loader.close()
+    return perf_indicator
+# one
+
 # dcp-cr
 def validate_dcp_cr(config, val_loader, val_dataset, model, output_dir, writer_dict=None,
                      epoch=-1, lambda_vals=[0, 1], log=logger):

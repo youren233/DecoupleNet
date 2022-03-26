@@ -7,7 +7,7 @@ from torch.nn import init
 
 class SEAttention(nn.Module):
 
-    def __init__(self, channel=512,reduction=16):
+    def __init__(self, channel=512,reduction=8):
         super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(

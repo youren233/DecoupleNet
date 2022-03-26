@@ -35,8 +35,8 @@ import _init_paths
 from lib.config import cfg
 from lib.config import update_config
 from lib.core.loss import JointsMSELoss
-from lib.core.train import train_dcp_naive
-from lib.core.validate import validate_dcp_naive
+from lib.core.train import train_one
+from lib.core.validate import validate_one
 
 import lib.dataset
 import lib.models
@@ -53,7 +53,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-arm.yaml',
+                        default='experiments/coco/hrnet/w32_256x192-dcp_one.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -83,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_two_2_64_ia_cnn_arm')
+                        default='Train_one_hrnet')
 
 
     args = parser.parse_args()
@@ -242,13 +242,13 @@ def main():
         if cfg.LOG:
             logger.info('====== training: lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
-        train_dcp_naive(cfg, train_loader, model, criterion, optimizer, writer_dict)
+        # train_one(cfg, train_loader, model, criterion, optimizer, writer_dict)
 
         lr_scheduler.step()
 
         if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > (cfg.TRAIN.END_EPOCH - 15):
-            perf_indicator = validate_dcp_naive(cfg, valid_loader, valid_dataset, model,
-                     final_output_dir, writer_dict, epoch=epoch, lambda_vals=[0, 1], log=logger)
+            perf_indicator = validate_one(cfg, valid_loader, valid_dataset, model,
+                     final_output_dir, writer_dict, epoch=epoch, log=logger)
 
             if perf_indicator >= best_perf:
                 best_perf = perf_indicator

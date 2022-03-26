@@ -559,8 +559,8 @@ class CoarseRefineDecouple(nn.Module):
     def _make_arm_layer(self, num_basicBlock, in_channels, out_channels):
         layers = []
 
+        layers.append(ARM(in_channels))
         for i in range(num_basicBlock):
-            layers.append(ARM(in_channels))
             layers.append(BasicBlock(in_channels, out_channels))
 
         return nn.Sequential(*layers)
