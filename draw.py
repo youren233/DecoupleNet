@@ -2,6 +2,7 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error
+from matplotlib import ticker
 
 def GaussProjection(x, mean, std):
     sigma = math.sqrt(2 * math.pi) * std
@@ -12,23 +13,24 @@ def sigmoid(x):
 
 def draw_guass():
     #sin & cos曲线
-    x = np.arange(-10, 10, 0.1)
-    y1 = 0.1 * x
+    x = np.arange(1, 10, 0.1)
+    # y1 = 0.1 * x
+    y1 = x
     y2 = sigmoid(x)
-    y3 = GaussProjection(x, x.mean(), x.std())
+    y3 = 10 * GaussProjection(x, x.mean(), x.std())
 
     plt.plot(x,y1,label="Origin",linestyle = "--")
     plt.plot(x,y3,label="Gauss")
-    plt.plot(x,y2,label="Sigmoid",linestyle='dotted')
+    # plt.plot(x,y2,label="Sigmoid",linestyle='dotted')
 
-    plt.ylim((-0.1,1.1))
+    # plt.ylim((-0.1,1.1))
     # plt.ylim()
 
     plt.xlabel("Before rectification")
     plt.ylabel("After rectification")
     plt.legend()   #打上标签
 
-    plt.savefig('./drawGauss.svg', format='svg')
+    plt.savefig('./OriginAndGauss.svg', format='svg')
     plt.show()
 
 def mse(x, gt):
@@ -64,8 +66,82 @@ def draw_afi():
     plt.savefig('./drawAFI.png', format='png')
     plt.show()
 
+def draw_person_num():
+    COCO = [98.7, 1.2, 0.1]
+    CrowdPose = [92.2, 7.7, 0.1]
+    OCHuman = [18.8, 80.3, 0.9]
+    x = [1, 2, 3]
+    width = 1.0 / 3.77
+    x1 = [i - width for i in x]
+    x2 = [i + width for i in x]
+    total_width, n = 3.5, 13
+    width = total_width / n
+
+    bar1 = plt.bar(x1, COCO, width=width, label='COCO')
+    # for i in range(len(x)):
+    #     x[i] = x[i] + width
+    bar2 = plt.bar(x, CrowdPose, width=width, label='CrowdPose')
+    # for i in range(len(x)):
+    #     x[i] = x[i] + width
+    bar3 = plt.bar(x2, OCHuman, width=width, label='OCHuman')
+
+    plt.xlabel("Number of Persons in BB(IoU > 0.5)")
+    plt.ylabel("Number of BBs(%)")
+    plt.legend()
+
+    for bar in [bar1, bar2, bar3]:
+        for rect in bar:
+            height = rect.get_height()
+            plt.text(rect.get_x() + rect.get_width() / 2, height+0.6, str(height), ha="center", va="bottom")
+
+    plt.savefig('./IouNumPerson.svg', format='svg')
+    plt.show()
+
+def draw_subplot():
+    fig = plt.figure()
+    # -----------------
+    coco = fig.add_subplot(2, 2, 1)
+    x = np.arange(0, 1, 1.0 / 14)
+    y = [68, 6.7, 5.8, 4.5, 4, 4.5, 3.5, 1, 1, 0.5, 0.5, 0.5, 0.4, 0.1]
+    plt.bar(x, y, width=0.064)
+    coco.yaxis.set_major_formatter(ticker.PercentFormatter())
+    coco.set_title('MS COCO')
+
+    # -----------------
+    mpii = fig.add_subplot(2, 2, 2)
+    x = np.arange(0, 1, 1.0 / 14)
+    y = [87, 3, 2, 2, 1, 1, 1, 0.5, 0.5, 0.4, 0.4,0.4,0.4,0.4]
+    plt.bar(x, y, width=0.066)
+    mpii.yaxis.set_major_formatter(ticker.PercentFormatter())
+    mpii.set_title('MPII')
+
+    # -----------------
+    ai = fig.add_subplot(2, 2, 3)
+    x = np.arange(0, 1, 1.0 / 14)
+    y = [62, 3, 6, 4, 2.5, 5.5, 3.5, 2.5, 3, 2.5, 1.9, 1.4, 1.1, 1.1]
+    plt.bar(x, y, width=0.066)
+    ai.yaxis.set_major_formatter(ticker.PercentFormatter())
+    ai.set_title('AI Challenger')
+
+    # -----------------
+    crowdpose = fig.add_subplot(2, 2, 4)
+    x = np.arange(0, 1, 0.1)
+    y = [10, 10.2, 10.3, 9.7, 10, 10.3, 9.8, 9.7, 9.5, 10.5]
+    plt.bar(x, y, width=0.066)
+    crowdpose.yaxis.set_major_formatter(ticker.PercentFormatter())
+    plt.xlim((-0.075, 1.01))
+    crowdpose.set_title('CrowdPose')
+
+    fig.tight_layout()
+
+    plt.savefig('./CrowdIndex.svg', format='svg')
+    plt.show()
+
+
 if __name__ == '__main__':
-    draw_afi()
+    draw_guass()
+    # draw_subplot()
+    # draw_person_num()
     # x = 10
     # gt1 = 10
     # gt2 = 20

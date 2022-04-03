@@ -1,13 +1,14 @@
-# ------------------------------------------------------------------------------
-# pose.pytorch
-# Copyright (c) 2018-present Microsoft
-# Licensed under The Apache-2.0 License [see LICENSE for details]
-# Written by Bin Xiao (Bin.Xiao@microsoft.com)
-# ------------------------------------------------------------------------------
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
+import sys, os
+
+DIR = os.path.abspath(__file__)  # 当前脚本
+n = 3  # 与当前脚本的相对位置
+for i in range(n):  # 第1次循环，得到父目录；的二次循环得到，父目录 的 父目录， 第3次得到 父目录 的 父目录 的父目录
+    DIR = os.path.dirname(DIR)
+sys.path.append(DIR)
 
 import argparse
 import os
@@ -25,22 +26,26 @@ from tensorboardX import SummaryWriter
 import _init_paths
 from lib.config import cfg
 from lib.config import update_config
+from lib.core.loss import JointsLambdaMSELoss
 from lib.core.loss import JointsMSELoss
-from lib.core.function import validate
+from lib.core.validate import validate_one
 from lib.utils.utils import create_logger
-from lib.utils.utils import get_model_summary
-
+from lib.utils.utils import get_dcp_cnn_model_summary
+from lib.utils.utils import set_seed
 
 import lib.dataset
 import lib.models
 
+# --------------------------------------------------------------------------------
+set_seed(seed_id=0)
 
+# --------------------------------------------------------------------------------
 def parse_args():
     parser = argparse.ArgumentParser(description='Train keypoints network')
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        required=True,
+                        default='experiments/coco/hrnet/w32_256x192-dcp_one.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -64,6 +69,10 @@ def parse_args():
                         help='prev Model directory',
                         type=str,
                         default='')
+    parser.add_argument('--local_rank', type=int, default=0)
+    parser.add_argument('--exp_id',
+                        type=str,
+                        default='Train_one_hrnet')
 
     args = parser.parse_args()
     return args
@@ -84,8 +93,11 @@ def main():
     torch.backends.cudnn.deterministic = cfg.CUDNN.DETERMINISTIC
     torch.backends.cudnn.enabled = cfg.CUDNN.ENABLED
 
-    model = eval('models.'+cfg.MODEL.NAME+'.get_pose_net')(
-        cfg, is_train=False
+    device = cfg.GPUS[args.local_rank]
+    torch.cuda.set_device(device)
+
+    model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(
+        cfg, is_train=True
     )
 
     writer_dict = {
@@ -95,17 +107,22 @@ def main():
     }
 
     dump_input = torch.rand(
-        (1, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0])
+        (16, 3, cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0])
     )
 
-    logger.info(get_model_summary(model, dump_input))
+    logger.info(get_dcp_cnn_model_summary(model, dump_input))
 
-    if cfg.TEST.MODEL_FILE:
+    checkpoint_file = os.path.join(final_output_dir, cfg.TEST.MODEL_FILE)
+
+    if checkpoint_file:
         logger.info('=> loading model from {}'.format(cfg.TEST.MODEL_FILE))
-        model_object = torch.load(cfg.TEST.MODEL_FILE, map_location='cpu')
+        model_object = torch.load(checkpoint_file, map_location='cpu')
         if 'latest_state_dict' in model_object.keys():
             logger.info('=> loading from latest_state_dict at {}'.format(cfg.TEST.MODEL_FILE))
             model.load_state_dict(model_object['latest_state_dict'], strict=False)
+        elif 'state_dict' in model_object.keys():
+            logger.info('=> loading from latest_state_dict at {}'.format(cfg.TEST.MODEL_FILE))
+            model.load_state_dict(model_object['state_dict'], strict=False)
         else:
             logger.info('=> no latest_state_dict found')
             model.load_state_dict(model_object, strict=False)
@@ -117,9 +134,11 @@ def main():
         model.load_state_dict(torch.load(model_state_file, map_location='cpu'))
 
     # model = torch.nn.DataParallel(model, device_ids=cfg.GPUS).cuda()
-    model = torch.nn.DataParallel(model).cuda()
+    # model = torch.nn.DataParallel(model).cuda()
+    model = model.cuda()
+    
+    # ------------------------------------------------
 
-    # define loss function (criterion) and optimizer
     criterion = JointsMSELoss(
         use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT
     ).cuda()
@@ -128,16 +147,15 @@ def main():
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     )
-    valid_dataset = eval('dataset.'+cfg.DATASET.TEST_DATASET)(
-        cfg=cfg, image_dir=cfg.DATASET.TEST_IMAGE_DIR, annotation_file=cfg.DATASET.TEST_ANNOTATION_FILE, \
-        dataset_type=cfg.DATASET.TEST_DATASET_TYPE, \
+    valid_dataset = eval('lib.dataset.'+cfg.DATASET.TEST_DATASET)(
+        cfg=cfg, image_dir=cfg.DATASET.TEST_IMAGE_DIR, annotation_file=cfg.DATASET.TEST_ANNOTATION_FILE,
+        dataset_type=cfg.DATASET.TEST_DATASET_TYPE,
         image_set=cfg.DATASET.TEST_SET, is_train=False,
         transform=transforms.Compose([
             transforms.ToTensor(),
             normalize,
         ])
     )
-    
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
         batch_size=cfg.TEST.BATCH_SIZE_PER_GPU*len(cfg.GPUS),
@@ -146,10 +164,9 @@ def main():
         pin_memory=True
     )
 
-    # evaluate on validation set
-    validate(cfg, valid_loader, valid_dataset, model, criterion,
-             final_output_dir, tb_log_dir, writer_dict)
-
+    # # # evaluate on validation set
+    validate_one(cfg, valid_loader, valid_dataset, model,
+                 final_output_dir, writer_dict, log=logger)
     writer_dict['writer'].close()
 
 

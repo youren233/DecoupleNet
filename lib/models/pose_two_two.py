@@ -14,6 +14,7 @@ import logging
 import torch
 import torch.nn as nn
 from lib.amzmodel.attention.CBAM import CBAMBlock
+from lib.layers.arm import ARM
 
 BN_MOMENTUM = 0.1
 logger = logging.getLogger(__name__)
@@ -24,6 +25,41 @@ def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=1, bias=False)
 
+
+class AttBlock(nn.Module):
+    expansion = 1
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
+        super(AttBlock, self).__init__()
+        self.conv1 = conv3x3(inplanes, planes, stride)
+        self.bn1 = nn.BatchNorm2d(planes, momentum=BN_MOMENTUM)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = conv3x3(planes, planes)
+        self.bn2 = nn.BatchNorm2d(planes, momentum=BN_MOMENTUM)
+        self.downsample = downsample
+        self.stride = stride
+
+        self.att1 = CBAMBlock(inplanes)
+        self.att2 = CBAMBlock(inplanes)
+
+    def forward(self, x):
+        residual = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.att1(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+
+        out = self.att2(out)
+
+        out += residual
+        out = self.relu(out)
+
+        return out
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -266,7 +302,7 @@ class HighResolutionModule(nn.Module):
 
 
 blocks_dict = {
-    'BASIC': BasicBlock,
+    'BASIC': AttBlock,
     'BOTTLENECK': Bottleneck
 }
 
@@ -485,10 +521,6 @@ class PoseHighResolutionNet(nn.Module):
             raise ValueError('{} is not exist!'.format(pretrained))
 
 
-import torch
-from torch import nn
-
-
 class CoarseRefineDecouple(nn.Module):
 
     def __init__(self, cfg, in_channels, is_train=True):
@@ -497,8 +529,9 @@ class CoarseRefineDecouple(nn.Module):
         coarse_num_blocks = cfg.MODEL.HEAD['COA_NUM_BLOCKS']
         refine_num_blocks = cfg.MODEL.HEAD['REF_NUM_BLOCKS']
         num_joints = cfg['MODEL']['NUM_JOINTS']
+        reduction_ratio = 16
         self.is_train = is_train
-        # ---------------------- up -------------------
+        # ---------------------- transition -------------------
         self.transition_coarse = nn.Sequential(
             nn.Conv2d(
                 in_channels,
@@ -508,8 +541,35 @@ class CoarseRefineDecouple(nn.Module):
             nn.BatchNorm2d(hidden_channels),
             nn.ReLU(inplace=True)
         )
-        # coarse branch
-        self.coarse_extract_up = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
+        self.transition_up = nn.Sequential(
+            nn.Conv2d(
+                in_channels,
+                hidden_channels,
+                1, 1, bias=False
+            ),
+            nn.BatchNorm2d(hidden_channels),
+            nn.ReLU(inplace=True)
+        )
+        self.transition_down = nn.Sequential(
+            nn.Conv2d(
+                in_channels,
+                hidden_channels,
+                1, 1, bias=False
+            ),
+            nn.BatchNorm2d(hidden_channels),
+            nn.ReLU(inplace=True)
+        )
+        # gate_channels, reduction_ratio=16
+        # self.attentRectify_coarse = ARM(hidden_channels)
+
+        # ---------------------- coarse extract -----------------------
+        self.coarse_att_up = self._make_att_branch(coarse_num_blocks, hidden_channels, hidden_channels)
+        self.coarse_att_down = self._make_att_branch(coarse_num_blocks, hidden_channels, hidden_channels)
+
+        self.coarse_arm_up = self._make_arm_branch(coarse_num_blocks, hidden_channels, hidden_channels)
+        self.coarse_arm_down = self._make_arm_branch(coarse_num_blocks, hidden_channels, hidden_channels)
+
+        # ---------------------- coarse predictor -----------------------
         self.coarse_predictor_up = nn.Conv2d(
             in_channels=hidden_channels,
             out_channels=num_joints,
@@ -517,9 +577,6 @@ class CoarseRefineDecouple(nn.Module):
             stride=1,
             padding=1 if cfg['MODEL']['EXTRA']['FINAL_CONV_KERNEL'] == 3 else 0
         )
-        # ---------------------- down -------------------
-        # coarse branch
-        self.coarse_extract_down = self._make_extract_layer(coarse_num_blocks, hidden_channels, hidden_channels)
         self.coarse_predictor_down = nn.Conv2d(
             in_channels=hidden_channels,
             out_channels=num_joints,
@@ -531,38 +588,40 @@ class CoarseRefineDecouple(nn.Module):
     def forward(self, x):
         # transition
         x = self.transition_coarse(x)
-        # --------------------------- coarse ------------------------
-        x_down = x.clone()
         # up
-        x = self.coarse_extract_up(x)
-        coarse_out_up = self.coarse_predictor_up(x)
+        x_att_up = self.coarse_att_up(x)
+        x_arm_up = self.coarse_arm_up(x)
+        x_feat_up = self.transition_up(x_att_up + x_arm_up)
+        coarse_out_up = self.coarse_predictor_up(x_feat_up)
         # down
-        x_down = x_down + x
-        x_down = self.coarse_extract_down(x_down)
-        coarse_out_down = self.coarse_predictor_down(x_down)
+        x = x + x_feat_up
+        x_att_down = self.coarse_att_down(x)
+        x_arm_down = self.coarse_arm_down(x)
+        x = self.transition_down(x_att_down + x_arm_down)
+        coarse_out_down = self.coarse_predictor_down(x)
 
         if not self.is_train:
             return coarse_out_up
         return {
             'up': coarse_out_up,
-            'down':coarse_out_down,
+            'down': coarse_out_down
         }
 
-    def _make_extract_layer(self, num_basicBlock, in_channels, out_channels):
-        # ablation: pure cnn
-        layers = []
-
-        for i in range(num_basicBlock):
-            # layers.append(CBAMBlock(in_channels))
-            layers.append(BasicBlock(in_channels, out_channels))
-
-        return nn.Sequential(*layers)
-
-    def _make_fuse_layer(self, num_basicBlock, in_channels, out_channels):
+    def _make_att_branch(self, num_basicBlock, in_channels, out_channels):
         layers = []
 
         for i in range(num_basicBlock):
             layers.append(CBAMBlock(in_channels))
+            layers.append(BasicBlock(in_channels, out_channels))
+            # layers.append(AttBlock(in_channels, out_channels))
+
+        return nn.Sequential(*layers)
+
+    def _make_arm_branch(self, num_basicBlock, in_channels, out_channels):
+        layers = []
+
+        for i in range(num_basicBlock):
+            layers.append(ARM(in_channels))
             layers.append(BasicBlock(in_channels, out_channels))
 
         return nn.Sequential(*layers)
@@ -570,7 +629,7 @@ class CoarseRefineDecouple(nn.Module):
 def get_pose_net(cfg, is_train, **kwargs):
     model = PoseHighResolutionNet(cfg, is_train=is_train, **kwargs)
 
-    print('==============> Got pose_hrnet_cnn two head')
+    print('==============> Got pose hrnet dcp two two_att_arm')
     if is_train and cfg['MODEL']['INIT_WEIGHTS']:
         model.init_weights(cfg['MODEL']['PRETRAINED'])
 

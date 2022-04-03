@@ -242,7 +242,7 @@ def main():
         if cfg.LOG:
             logger.info('====== training: lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
-        # train_one(cfg, train_loader, model, criterion, optimizer, writer_dict)
+        train_one(cfg, train_loader, model, criterion, optimizer, writer_dict)
 
         lr_scheduler.step()
 

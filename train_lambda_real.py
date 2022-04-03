@@ -56,7 +56,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-xx.yaml',
+                        default='experiments/coco/hrnet/w32_256x192_adam_lr1e-3.yaml',
                         type=str)
 
     parser.add_argument('opts',

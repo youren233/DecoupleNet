@@ -2,13 +2,6 @@
 <project version="4">
   <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="pubserver">
-        <serverdata>
-          <mappings>
-            <mapping deploy="MIPNet" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
       <paths name="xxserver">
         <serverdata>
           <mappings>

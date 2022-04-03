@@ -1,6 +1,6 @@
 AUTO_RESUME: true
 ENV: 0
-GPUS: (0,)
+GPUS: (1,)
 WORKERS: 8
 PRINT_FREQ: 20
 EPOCH_EVAL_FREQ: 20
@@ -47,8 +47,8 @@ MODEL:
   NAME: pose_hrnet_decouple_stupid
   HEAD:
     HIDDEN_CHANNELS: 32
-    COA_NUM_BLOCKS: 8
-    REF_NUM_BLOCKS: 8
+    COA_NUM_BLOCKS: 2
+    REF_NUM_BLOCKS: 2
     OUT_WEIGHT:
       - 0.5
       - 0.5

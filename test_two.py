@@ -46,7 +46,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/test.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-dcp-two-two.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -73,7 +73,7 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Two_8_cnn_arm_mse_triplet_w32_256x192-two-arm')
+                        default='Train_two_2_32_two_att_arm')
 
     args = parser.parse_args()
     return args
