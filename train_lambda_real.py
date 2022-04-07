@@ -86,7 +86,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='exp_train')
+                        default='Train_COCO_MIPNet')
 
 
     args = parser.parse_args()
@@ -231,6 +231,8 @@ def main():
     perf_indicator = 0.0
     best_model = False
     last_epoch = -1
+    save_freq = cfg.EPOCH_EVAL_FREQ // 5 + 1
+    is_best = True
     optimizer = get_optimizer(cfg, model)
     begin_epoch = cfg.TRAIN.BEGIN_EPOCH
     checkpoint_file = os.path.join(
@@ -283,27 +285,25 @@ def main():
 
         lr_scheduler.step()
 
-        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > 65:
+        if epoch % cfg.EPOCH_EVAL_FREQ == 0 or epoch > (cfg.TRAIN.END_EPOCH - 15):
             perf_indicator = validate_lambda_quantitative(cfg, valid_loader, valid_dataset, model, criterion,
                      final_output_dir, tb_log_dir, writer_dict, epoch=epoch, print_prefix='lambda', lambda_vals=[0, 1], log=logger)
 
             if perf_indicator >= best_perf:
                 best_perf = perf_indicator
-                best_model = True
+                is_best = True
             else:
-                best_model = False
+                is_best = False
 
-        if cfg.LOG:
-            logger.info('=> model[ap: {}] saving checkpoint to {}'.format(perf_indicator, final_output_dir))
+        if cfg.LOG and (epoch % save_freq == 0 or epoch > (cfg.TRAIN.END_EPOCH - 15)):
+            logger.info('=> model AP: {} | saving checkpoint to {}'.format(perf_indicator, final_output_dir))
             save_checkpoint({
                 'epoch': epoch + 1,
                 'model': cfg.MODEL.NAME,
-                'state_dict': model.state_dict(),
-                'latest_state_dict': model.module.state_dict(),
-                'best_state_dict': model.module.state_dict(),
+                'state_dict': model.module.state_dict(),
                 'perf': perf_indicator,
                 'optimizer': optimizer.state_dict(),
-                }, best_model, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))
+            }, is_best, final_output_dir, filename='checkpoint_{}.pth'.format(epoch + 1))
 
     # # ----------------------------------------------
     if cfg.LOG:

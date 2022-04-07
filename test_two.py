@@ -73,7 +73,7 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_two_2_32_two_att_arm')
+                        default='Train_two_2_32_two_att_arm_AFILoss')
 
     args = parser.parse_args()
     return args

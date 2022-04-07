@@ -41,3 +41,4 @@ import lib.models.pose_hrnet_twohead
 import lib.models.pose_cnn_two_arm
 import lib.models.pose_hrnet_ori
 import lib.models.pose_two_two
+import lib.models.pose_two_catt
