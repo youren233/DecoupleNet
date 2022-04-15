@@ -309,9 +309,17 @@ class JointsTripletMSELoss(nn.Module):
         self.criterion = nn.MSELoss(reduction='none')
         self.use_target_weight = use_target_weight
 
+        # interference point count
+        self.ipc = 0
+
     def tripletLoss(self, loss, another_loss):
         triple_loss = loss - another_loss
         triple_loss[triple_loss < 0] = 0
+
+        # debug
+        tmp = triple_loss.detach().cpu().numpy()
+        self.ipc += np.count_nonzero(tmp)
+
         return torch.mean(triple_loss, dim=1)
 
     def forward(self, output, target, target_weight, another_target):

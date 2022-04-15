@@ -950,7 +950,7 @@ def train_dcp_up_down_loss(config, train_loader, model, triplet_criterion, mse_c
 
 # dcp-naive------------
 def train_dcp_naive_ocks(config, train_loader, model, criterion, optimizer, writer_dict):
-    print("=====> ShortCut(confused) Count: {}".format(criterion.confusedCount))
+    print("=====> ShortCut(confused) Count: {}".format(criterion.ipc))
 
     accAMer = AverageMeter()
     pose_lossAMer = AverageMeter()
@@ -1007,8 +1007,8 @@ def train_dcp_naive_ocks(config, train_loader, model, criterion, optimizer, writ
             writer_dict['train_global_steps'] = global_steps + 1
 
     train_loader.close()
-    print("=====> ShortCut(confused) Count: {}".format(criterion.confusedCount))
-    criterion.confusedCount = 0
+    print("=====> ShortCut(confused) Count: {}".format(criterion.ipc))
+    criterion.ipc = 0
     return
 # dcp-naive------------
 

@@ -53,7 +53,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-dcp-two-two.yaml',
+                        default='experiments/crowdpose/hrnet/w32_256x192-decouple-naive.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -83,7 +83,7 @@ def parse_args():
                         default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_two_2_32_two_att_arm_AFILoss')
+                        default='Train_two_2_32_AFILoss')
 
 
     args = parser.parse_args()
@@ -237,12 +237,16 @@ def main():
     # ----------------------------------------------------
     criterion = criterion.cuda()
     for epoch in range(begin_epoch, cfg.TRAIN.END_EPOCH):
-
+        criterion.ipc = 0
         # # # train for one epoch
         if cfg.LOG:
             logger.info('====== training: lr={}, {} th epoch ======'
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
         train_two_tripletLoss(cfg, train_loader, model, criterion, optimizer, writer_dict)
+
+        writer_dict['writer'].add_scalar('interference point count', criterion.ipc, epoch)
+        if cfg.LOG:
+            logger.info('======> interference point count: {}'.format(criterion.ipc))
 
         lr_scheduler.step()
 

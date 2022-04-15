@@ -44,7 +44,7 @@ DEBUG:
 DESCRIPTION: 'pose_hrnet_decouple_cnn-naive, just coarse'
 MODEL:
   INIT_WEIGHTS: true
-  NAME: pose_hrnet_decouple_naive
+  NAME: pose_hrnet_decouple_ia
   HEAD:
     HIDDEN_CHANNELS: 64
     COA_NUM_BLOCKS: 2
