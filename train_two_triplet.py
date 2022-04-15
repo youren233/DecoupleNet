@@ -244,7 +244,7 @@ def main():
                         .format(optimizer.state_dict()['param_groups'][0]['lr'], epoch))
         train_two_tripletLoss(cfg, train_loader, model, criterion, optimizer, writer_dict)
 
-        writer_dict['writer'].add_scalar('interference point count', criterion.ipc, epoch)
+        writer_dict['writer'].add_scalar('interference_point_count', criterion.ipc, epoch)
         if cfg.LOG:
             logger.info('======> interference point count: {}'.format(criterion.ipc))
 
