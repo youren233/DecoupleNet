@@ -28,8 +28,9 @@ from lib.config import cfg
 from lib.config import update_config
 from lib.core.loss import JointsLambdaMSELoss
 from lib.core.loss import JointsMSELoss
+from lib.core.loss import JointsTripletMSELoss
 from lib.core.validate import validate_dcp_naive
-from lib.core.validate import validate_lambda
+from lib.core.validate import validate_afi
 from lib.utils.utils import create_logger
 from lib.utils.utils import get_dcp_cnn_model_summary
 from lib.utils.utils import set_seed
@@ -46,7 +47,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/crowdpose/hrnet/w32_256x192-dcp-two-two.yaml',
+                        default='experiments/coco/hrnet/w32_256x192_adam_lr1e-3.yaml',
                         type=str)
 
     parser.add_argument('opts',
@@ -73,7 +74,9 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='Train_two_2_32_two_att_arm_AFILoss')
+                        default='Train_COCO_2_32_att')
+                        # default='Train_two_2_32_two_att_arm_AFILoss')
+                        # default='train_two_2_64')
 
     args = parser.parse_args()
     return args
@@ -140,9 +143,7 @@ def main():
     
     # ------------------------------------------------
 
-    criterion = JointsMSELoss(
-        use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT
-    ).cuda()
+    criterion = JointsTripletMSELoss(use_target_weight=cfg.LOSS.USE_TARGET_WEIGHT).cuda()
 
     # Data loading code
     normalize = transforms.Normalize(
@@ -168,6 +169,10 @@ def main():
     # # # evaluate on validation set
     validate_dcp_naive(cfg, valid_loader, valid_dataset, model,
                        final_output_dir, writer_dict, log=logger)
+
+    # validate_afi(cfg, valid_loader, valid_dataset, model,
+    #              final_output_dir, writer_dict, log=logger, criterion=criterion)
+    # logger.info("interference point count: {}".format(criterion.ipc))
 
     writer_dict['writer'].close()
 

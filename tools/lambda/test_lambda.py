@@ -73,7 +73,8 @@ def parse_args():
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--exp_id',
                         type=str,
-                        default='exp_test')
+                        default='TrainBaseline_w32_256x192')
+                        # default='Train_COCO_MIPNet')
 
     args = parser.parse_args()
     return args
@@ -116,9 +117,11 @@ def main():
 
     logger.info(get_lambda_model_summary(model, dump_input, dump_lambda))
 
-    if cfg.TEST.MODEL_FILE:
+    checkpoint_file = os.path.join(final_output_dir, cfg.TEST.MODEL_FILE)
+
+    if checkpoint_file:
         logger.info('=> loading model from {}'.format(cfg.TEST.MODEL_FILE))
-        model_object = torch.load(cfg.TEST.MODEL_FILE, map_location='cpu')
+        model_object = torch.load(checkpoint_file, map_location='cpu')
         if 'latest_state_dict' in model_object.keys():
             logger.info('=> loading from latest_state_dict at {}'.format(cfg.TEST.MODEL_FILE))
             model.load_state_dict(model_object['latest_state_dict'], strict=False)

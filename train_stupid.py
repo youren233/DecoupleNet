@@ -53,7 +53,7 @@ def parse_args():
     # general
     parser.add_argument('--cfg',
                         help='experiment configure file name',
-                        default='experiments/coco/hrnet/w32_256x192-decouple-stupid.yaml',
+                        default='experiments/coco/hrnet/w32_256x192-conet.yaml',
                         type=str)
 
     parser.add_argument('opts',

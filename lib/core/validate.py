@@ -1096,6 +1096,172 @@ def validate_dcp_naive(config, val_loader, val_dataset, model, output_dir, write
     return perf_indicator
 # dcp-naive
 
+# dcp-afi
+def validate_afi(config, val_loader, val_dataset, model, output_dir, writer_dict=None,
+                       epoch=-1, lambda_vals=[0, 1], log=logger, criterion=None):
+    accAMer = AverageMeter()
+
+    visualize_dir = os.path.join(output_dir, "visualize")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    if not os.path.exists(visualize_dir):
+        os.makedirs(visualize_dir)
+
+    # switch to evaluate mode
+    model.eval()
+
+    num_outputs = len(lambda_vals)*len(val_dataset)
+    all_preds = np.zeros(
+        (num_outputs, config.MODEL.NUM_JOINTS, 3),
+        dtype=np.float32
+    )
+    all_boxes = np.zeros((num_outputs, 6+1+1)) ## update to add annotation ids and mode l=0,1
+    image_path = []
+    filenames = []
+    imgnums = []
+    global_idx = 0
+    with torch.no_grad():
+        val_loader = tqdm(val_loader)
+        for i, (input, target, target_weight, meta, target_oced, target_weight_oced, meta_oced) in enumerate(val_loader):
+
+            B, C, H, W = input.shape
+            # get output
+            input = input.cuda()
+            pose_dict = model(input)
+            up_pose = pose_dict['up']
+            down_pose = pose_dict['down']
+
+            if config.TEST.FLIP_TEST:
+                input_flipped = input.flip(3)
+                pose_dict_flipped = model(input_flipped)
+                up_flipped = pose_dict_flipped['up']
+                down_flipped = pose_dict_flipped['down']
+                # occ
+                up_flipped = flip_back(up_flipped.cpu().numpy(), val_dataset.flip_pairs)
+                up_flipped = torch.from_numpy(up_flipped.copy()).cuda()
+
+                # feature is not aligned, shift flipped heatmap for higher accuracy
+                if config.TEST.SHIFT_HEATMAP:
+                    up_flipped[:, :, :, 1:] = up_flipped.clone()[:, :, :, 0:-1]
+                up_pose = (up_pose + up_flipped) * 0.5
+
+                # occee
+                down_flipped = flip_back(down_flipped.cpu().numpy(), val_dataset.flip_pairs)
+                down_flipped = torch.from_numpy(down_flipped.copy()).cuda()
+
+                if config.TEST.SHIFT_HEATMAP:
+                    down_flipped[:, :, :, 1:] = down_flipped.clone()[:, :, :, 0:-1]
+
+                down_pose = (down_pose + down_flipped) * 0.5
+            # --------------
+            target = target.cuda(non_blocking=True)
+            target_weight = target_weight.cuda(non_blocking=True)
+            target_oced = target_oced.cuda(non_blocking=True)
+            target_weight_oced = target_weight_oced.cuda(non_blocking=True)
+
+            loss_up_pose = criterion(up_pose, target, target_weight, target_oced)
+            loss_down_pose = criterion(down_pose, target_oced, target_weight_oced, target)
+            # --------------
+            for m, output in enumerate({up_pose, down_pose}):
+                # b x [0, 1], b x [1, 0]
+                mode = m * torch.ones(B, 1)
+
+                target = target.cuda(non_blocking=True)
+                target_weight = target_weight.cuda(non_blocking=True)
+
+
+                num_images = input.size(0)
+                # measure accuracy and record loss
+                _, avg_acc, cnt, pred = accuracy(output.cpu().numpy(),
+                                                 target.cpu().numpy())
+                accAMer.update(avg_acc, cnt)
+
+                # measure elapsed time
+                # batch_time.update(time.time() - end)
+                # end = time.time()
+                c = meta['center'].numpy()
+                s = meta['scale'].numpy()
+                # todo 被遮挡者结果权重衰减？
+                if m == 1:
+                    score = meta['score'].numpy()*config.TEST.DECAY_THRE
+                else:
+                    score = meta['score'].numpy()
+
+                annotation_id = meta['annotation_id'].numpy()
+
+                preds, maxvals = get_final_preds(
+                    config, output.clone().cpu().numpy(), c, s)
+
+                all_preds[global_idx:global_idx + num_images, :, 0:2] = preds[:, :, 0:2]
+                all_preds[global_idx:global_idx + num_images, :, 2:3] = maxvals
+                # double check this all_boxes parts
+                all_boxes[global_idx:global_idx + num_images, 0:2] = c[:, 0:2]
+                all_boxes[global_idx:global_idx + num_images, 2:4] = s[:, 0:2]
+                all_boxes[global_idx:global_idx + num_images, 4] = np.prod(s*200, 1)
+                all_boxes[global_idx:global_idx + num_images, 5] = score
+                all_boxes[global_idx:global_idx + num_images, 6] = annotation_id
+                all_boxes[global_idx:global_idx + num_images, 7] = mode.detach().cpu().numpy().reshape(-1)
+
+                image_path.extend(meta['image'])
+
+                global_idx += num_images
+
+                if config.LOG:
+                    msg = 'Accuracy {acc.val:.8f}'.format(acc=accAMer)
+                    val_loader.set_description(msg)
+
+                # 可视化结果
+                if config.DEBUG.DEBUG is True and i % config.PRINT_FREQ == 0:
+                    save_size = min(8, B)
+                    meta['pred_joints_vis'] = torch.ones_like(meta['joints_vis'])
+
+                    prefix = str(i) + ['up', 'down'][m]
+
+                    save_debug_images(config, input[:save_size, [2,1,0], :, :], meta, target[:save_size], (pred*4)[:save_size], output[:save_size],
+                                      visualize_dir, prefix)
+        logger.info("========> interference point count: {}".format(criterion.ipc))
+        perf_indicator = 0.0
+        if config.LOG:
+            name_values, name_values_mode0, \
+            name_values_mode1, name_values_mode2, \
+            name_values_mode3, perf_indicator = val_dataset.evaluate(
+                config, all_preds, output_dir, all_boxes, image_path, epoch,
+                filenames, imgnums
+            )
+
+            model_name = config.MODEL.NAME
+
+            _print_name_value(name_values, 'total:{}'.format(model_name), log=log)
+            _print_name_value(name_values_mode0, 'occer:{}'.format(model_name), log=log)
+            _print_name_value(name_values_mode1, 'occed:{}'.format(model_name), log=log)
+
+        if writer_dict and config.LOG:
+            writer = writer_dict['writer']
+            global_steps = writer_dict['valid_global_steps']
+            writer.add_scalar(
+                'valid_acc',
+                accAMer.avg,
+                global_steps
+            )
+            if isinstance(name_values, list):
+                for name_value in name_values:
+                    writer.add_scalars(
+                        'valid',
+                        dict(name_value),
+                        global_steps
+                    )
+            else:
+                writer.add_scalars(
+                    'valid',
+                    dict(name_values),
+                    global_steps
+                )
+            writer_dict['valid_global_steps'] = global_steps + 1
+
+    val_loader.close()
+    return perf_indicator
+# dcp-afi
+
 # --------------------------------------------------------------------------------
 def validate_lambda(config, val_loader, val_dataset, model, criterion_lambda, criterion, output_dir,
              tb_log_dir, writer_dict, epoch=-1, print_prefix=''):

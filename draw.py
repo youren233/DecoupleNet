@@ -3,6 +3,7 @@ import math
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error
 from matplotlib import ticker
+import json
 
 def GaussProjection(x, mean, std):
     sigma = math.sqrt(2 * math.pi) * std
@@ -138,8 +139,37 @@ def draw_subplot():
     plt.show()
 
 
+def count_afi():
+    afi_json = 'G:\Wei\grad\ccc\Rccc\exp\Train_two_2_32_AFILoss/run-log-tag-interference_point_count.json'
+    x = []
+    y = []
+    with open(afi_json, 'r') as f:
+        x_ys = json.load(f)
+        s = set()
+        for xy in x_ys:
+            if xy[1] in s:
+                continue
+            s.add(xy[1])
+            x.append(xy[1])
+            y.append(xy[2])
+
+    # infinit = np.arange(-1000, 1000, 1)
+    plt.plot(x, y, label="interference keypoint num")
+
+    # plt.ylim((-10, 420))
+
+    plt.xlabel("epoch")
+    # plt.ylabel("interference keypoint num")
+    plt.legend()   #打上标签
+    # plt.title("num")
+    plt.tight_layout()
+
+    plt.savefig('./count_AFI.svg', format='svg')
+    plt.show()
+
 if __name__ == '__main__':
-    draw_guass()
+    count_afi()
+    # draw_guass()
     # draw_subplot()
     # draw_person_num()
     # x = 10

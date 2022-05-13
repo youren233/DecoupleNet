@@ -121,11 +121,12 @@ def main():
     # pose_model = eval('lib.models.'+cfg.MODEL.NAME+'.get_pose_net')(
     #     cfg, is_train=False
     # )
-    pose_model = lib.models.pose_hrnet_decouple_stupid.get_pose_net(cfg, is_train=False)
+    pose_model = lib.models.pose_two_two.get_pose_net(cfg, is_train=False)
 
     # 模型加载。模型路径手动写
     # model_file = 'output/Two_8_cnn_arm_mse_triplet_w32_256x192-two-arm_test/checkpoint_208.pth'
-    model_file = 'output/train_two_2_64/checkpoint_207.pth'
+    # model_file = 'output/train_two_2_64/checkpoint_207.pth'
+    model_file = 'output/Train_two_2_32_two_att_arm_AFILoss/checkpoint_207.pth'
     # model_file = 'output/train-two_2blocks_64channels_att_test/checkpoint_209.pth'
     # model_file = os.path.join(ckpt_dir, cfg.TEST.MODEL_FILE)
     if cfg.TEST.MODEL_FILE:
@@ -230,7 +231,7 @@ def main():
             pred_boxes = get_person_detection_boxes(box_model, input, threshold=0.9)
 
             # pose estimation
-            no_box = False
+            no_box = True
             if len(pred_boxes) >= 1:
                 for i, box in enumerate(pred_boxes):
                     if no_box and i >= 1:
@@ -270,7 +271,7 @@ def draw_pose(keypoints,img):
     for i in range(len(SKELETON)):
         kpt_a, kpt_b = SKELETON[i][0], SKELETON[i][1]
 
-        sktColor = (0, 0, 255)#colors[i]
+        sktColor = colors[i]    #(0, 0, 255)
 
         x_a, y_a = keypoints[kpt_a][0],keypoints[kpt_a][1]
         x_b, y_b = keypoints[kpt_b][0],keypoints[kpt_b][1]
@@ -280,8 +281,8 @@ def draw_pose(keypoints,img):
         # cv2.putText(img, str(kpt_a), (int(x_a), int(y_a)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255))
         # cv2.putText(img, str(kpt_b), (int(x_b), int(y_b)), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255))
 
-        # if x_a > 0 and y_a > 0 and x_b > 0 and y_b > 0:
-        #     cv2.line(img, (int(x_a), int(y_a)), (int(x_b), int(y_b)), sktColor, 4, lineType=cv2.LINE_AA)
+        if x_a > 0 and y_a > 0 and x_b > 0 and y_b > 0:
+            cv2.line(img, (int(x_a), int(y_a)), (int(x_b), int(y_b)), sktColor, 4, lineType=cv2.LINE_AA)
 
 def draw_bbox(box,img):
     """draw the detected bounding box on the image.

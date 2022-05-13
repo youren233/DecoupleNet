@@ -549,14 +549,14 @@ class CoarseRefineDecouple(nn.Module):
 
     def _make_extract_layer(self, num_basicBlock, in_channels, out_channels):
         layers = []
-        cbam_before = CBAMBlock(in_channels)
-        layers.append(cbam_before)
+        # cbam_before = CBAMBlock(in_channels)
+        # layers.append(cbam_before)
 
         for i in range(num_basicBlock):
             layers.append(BasicBlock(in_channels, out_channels))
 
         cbam_after = CBAMBlock(out_channels)
-        layers.append(cbam_after)
+        # layers.append(cbam_after)
         return nn.Sequential(*layers)
 
     def _make_fuse_layer(self, num_basicBlock, in_channels, out_channels):

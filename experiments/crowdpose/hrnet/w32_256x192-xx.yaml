@@ -23,14 +23,14 @@ TRAIN:
   NESTEROV: false
 TEST:
   BATCH_SIZE_PER_GPU: 64
-  COCO_BBOX_FILE: 'coco/person_detection_results/COCO_val2017_detections_AP_H_56_person.json'
+  COCO_BBOX_FILE: 'crowdpose/json/det_for_crowd_test_0.1_0.5.json'
   BBOX_THRE: 1.0
   IMAGE_THRE: 0.0
   IN_VIS_THRE: 0.2
-  MODEL_FILE: 'output/TrainSS_w32_256x192-xx/checkpoint_210.pth'
+  MODEL_FILE: 'checkpoint_210.pth'
   NMS_THRE: 1.0
   OKS_THRE: 0.9
-  USE_GT_BBOX: true
+  USE_GT_BBOX: false
   FLIP_TEST: true
   POST_PROCESS: true
   SHIFT_HEATMAP: true
@@ -140,10 +140,10 @@ DATASET:
   TRAIN_ANNOTATION_FILE: 'crowdpose/json/crowdpose_train.json'
   TRAIN_DATASET_TYPE: 'crowdpose_lambda'
 
-  TEST_SET: 'val'
+  TEST_SET: 'test'
   TEST_DATASET: 'crowdpose'
   TEST_IMAGE_DIR: 'crowdpose/images'
-  TEST_ANNOTATION_FILE: 'crowdpose/json/crowdpose_val.json'
+  TEST_ANNOTATION_FILE: 'crowdpose/json/crowdpose_test.json'
   TEST_DATASET_TYPE: 'crowdpose'
   SYNTHETIC_DATASET: crowdpose_lambda
 

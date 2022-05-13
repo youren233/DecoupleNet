@@ -48,7 +48,7 @@ class SpatialGroupEnhance(nn.Module):
         x=x*self.sig(t)
         x=x.view(b,c,h,w)
 
-        return x 
+        return x
 
 
 if __name__ == '__main__':
